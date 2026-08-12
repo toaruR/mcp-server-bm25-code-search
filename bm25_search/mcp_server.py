@@ -42,10 +42,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sqlite3
 import sys
+from pathlib import Path
 from typing import Any, Optional
+
+try:  # pragma: no cover
+    from bm25_search.indexer import sync_index, db_path_for  # type: ignore
+except Exception:  # pragma: no cover
+    try:
+        from .indexer import sync_index, db_path_for  # type: ignore
+    except Exception:  # pragma: no cover
+        sync_index = None  # type: ignore
+        db_path_for = None  # type: ignore
+
 
 # ---------------------------------------------------------------------------
 # Protocol constants (2026-07-28 spec)
@@ -372,6 +384,13 @@ def handle_tools_list(request_id: Any, params: Optional[dict]) -> dict:
     }
 
 
+SERVER_CONFIG: dict[str, Any] = {
+    "root": ".",
+    "db_path": None,
+    "auto_sync": True,
+}
+
+
 def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
     """Handle ``tools/call`` -- run the requested tool and return its result."""
     params = params or {}
@@ -391,7 +410,26 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
     if mode not in ("OR", "AND"):
         raise McpError(code=-32602, message="'mode' must be 'OR' or 'AND'.")
 
-    db_path = str(arguments.get("db_path") or DEFAULT_DB_PATH)
+    db_path_arg = arguments.get("db_path")
+    should_sync = False
+    if db_path_arg:
+        db_path = str(db_path_arg)
+    elif SERVER_CONFIG["db_path"]:
+        db_path = str(SERVER_CONFIG["db_path"])
+        should_sync = SERVER_CONFIG.get("auto_sync", True)
+    else:
+        root_dir = SERVER_CONFIG["root"]
+        db_path = str(Path(root_dir) / ".bm25_index.db")
+        should_sync = SERVER_CONFIG.get("auto_sync", True)
+
+    if should_sync and db_path != ":memory:" and sync_index is not None:
+        try:
+            root_dir = SERVER_CONFIG["root"]
+            sync_index(root=root_dir, db_path=db_path)
+        except Exception:
+            pass
+
+
     if db_path == ":memory:":
         raise McpError(
             code=-32602,
@@ -402,6 +440,7 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
         conn = sqlite3.connect(db_path)
     except sqlite3.Error as exc:
         raise McpError(code=-32603, message=f"Index open failed: {exc}") from exc
+
 
     try:
         # Prefer the sibling implementation when present, for a single source
@@ -626,24 +665,36 @@ def run_stdio() -> None:
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="mcp_server.py",
+        prog="mcp-server-bm25-code-search",
         description="Stateless MCP 2026-07-28 server for BM25 code search.",
     )
     parser.add_argument(
-        "--db", default=DEFAULT_DB_PATH,
-        help="Path to the SQLite FTS5 index (default: in-memory).",
+        "--root", "-r", default=".",
+        help="Root directory of the project to index and search (default: current working directory).",
+    )
+    parser.add_argument(
+        "--db", default=None,
+        help="Path to the SQLite FTS5 index (default: <root>/.bm25_index.db).",
+    )
+    parser.add_argument(
+        "--no-auto-sync", action="store_true",
+        help="Disable automatic index sync on tool invocation.",
     )
     parser.add_argument(
         "--stdio", action="store_true",
         help="Run the stdio JSON-RPC transport loop (default behaviour).",
     )
-    # Note: ``--db`` is accepted for CLI convenience but a stateless server
-    # treats the index path as a per-call argument (``db_path``), which keeps
-    # the server free of cross-call state.  The stdio loop reacts only to the
-    # JSON-RPC requests it receives.
     args = parser.parse_args(argv)
+
+    root_path = os.path.abspath(args.root)
+    SERVER_CONFIG["root"] = root_path
+    SERVER_CONFIG["db_path"] = args.db
+    SERVER_CONFIG["auto_sync"] = not args.no_auto_sync
+
     run_stdio()
     return 0
+
+
 
 
 if __name__ == "__main__":

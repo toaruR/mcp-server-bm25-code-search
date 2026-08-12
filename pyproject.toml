@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-server-bm25-code-search"
+version = "1.0.0"
+description = "Fast, low-token BM25 code search MCP server backed by SQLite FTS5 for AI coding agents."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "mcp-server-bm25-code-search authors" }
+]
+keywords = ["mcp", "bm25", "code-search", "sqlite", "fts5", "claude-code", "antigravity"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.scripts]
+mcp-server-bm25-code-search = "bm25_search.mcp_server:main"
+bm25-code-search = "bm25_search.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bm25_search"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+

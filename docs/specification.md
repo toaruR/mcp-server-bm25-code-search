@@ -1,4 +1,4 @@
-<!-- spec-doc:last-reviewed-commit=17b4df4375f4a496fd442f95e5f074bf9787208e reviewed-at=2026-08-12 -->
+<!-- spec-doc:last-reviewed-commit=b516b1f2eebb91d53b422434b0eac3885a65056f reviewed-at=2026-08-12 -->
 
 # コード探索向け BM25 検索 Skill 仕様書
 
@@ -12,7 +12,9 @@
 
 - **コア検索エンジン (`bm25_search/`)**: データベースアクセス、事前トークナイズ、インデックス作成・更新、検索実行を担うモジュール群。
 - **MCP サーバ (`bm25_search/mcp_server.py`)**: MCP 2026-07-28 仕様に完全準拠したステートレスな stdio JSON-RPC サーバ。
+- **パッケージ化・ランチャー (`pyproject.toml` / `package.json` / `bin/cli.js`)**: `uvx` および `npx` によるワンライナー自動起動とプロジェクトごとの Stdio 接続をサポート。
 - **Hermes アダプタ (`bm25_search/hermes_adapter.py`)**: MCP 非対応の Hermes Agent 向け Function Calling スキーマ変換および CLI 呼び出しアダプタ。
+
 
 ---
 
@@ -90,15 +92,22 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 
 ---
 
-## 6. MCP サーバ (`bm25_search/mcp_server.py`)
+## 6. MCP サーバ (`bm25_search/mcp_server.py`) & パッケージ化
 
 MCP (Model Context Protocol) 2026-07-28 仕様に準拠したステートレス RPC サーバ。
 
+- **パッケージ化と自動起動 (`uvx` / `npx`)**:
+  - `pyproject.toml`: PyPI / `uvx` 対応。`[project.scripts]` により `mcp-server-bm25-code-search` コマンドを提供。
+  - `package.json` + `bin/cli.js`: Node.js / `npx` 対応。`npx -y mcp-server-bm25-code-search` 実行時に `uvx` やローカル Python プロセスをパイプ起動する Node.js Stdio ラッパーを提供。
+- **プロジェクト自動検出 & 自動インデックス同期 (Auto Sync)**:
+  - CLI 引数 `--root <DIR>` (既定: カレントディレクトリ `.`) によりプロジェクトルートを指定。
+  - サーバー起動時および `tools/call` の `search` 呼び出し時、暗黙のインデックスパス（`<root>/.bm25_index.db`）に対して `indexer.sync_index()` を自動実行。クライアント側での事前インデックス作成コマンド実行を不要化。
 - **ステートレス RPC**: `initialize` / `initialized` ハンドシェイクおよび `Mcp-Session-Id` を廃止し、全リクエストが自己完結型。ただし、従来の 2024-11-05 仕様の MCP クライアントとの接続互換性を保つため、`initialize`, `initialized`, `ping` RPC ハンドラを具備。
 - **`server/discover`**: プロトコルバージョン (`2026-07-28`)、サーバ機能 (`stateless: True`)、サーバ情報を応答。
 - **`tools/list`**: ツール一覧（`search` ツール）を名前順でソートして返し、プロンプトキャッシュ効率を最大化。
 - **`tools/call`**: 検索を実行し、全成功レスポンスに `resultType: "complete"` を付与して返却。
 - **トランスポート**: stdio 上での改行区切り JSON-RPC 2.0 通信（単一リクエスト・バッチリクエスト・通知に対応）。
+
 
 ---
 

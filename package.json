@@ -1,0 +1,31 @@
+{
+  "name": "mcp-server-bm25-code-search",
+  "version": "1.0.0",
+  "description": "Fast, low-token BM25 code search MCP server backed by SQLite FTS5 for AI coding agents.",
+  "main": "bin/cli.js",
+  "bin": {
+    "mcp-server-bm25-code-search": "bin/cli.js",
+    "bm25-code-search": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "bm25_search/",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "bm25",
+    "code-search",
+    "claude-code",
+    "antigravity",
+    "codex"
+  ],
+  "author": "mcp-server-bm25-code-search authors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

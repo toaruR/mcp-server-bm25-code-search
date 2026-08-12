@@ -62,16 +62,38 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 - `--mode`: クエリトークンの結合モード `OR` または `AND`（デフォルト: `OR`）
 - `--db`: 使用する SQLite インデックス DB パス（デフォルト: `.bm25_index.db`）
 
-### 2. MCP サーバとしての起動
+### 2. MCP サーバとしての起動（uvx / npx 対応）
 
-Claude Code, Codex, Antigravity などの MCP 対応クライアントからは、以下のように stdio モードで起動します。
+プロジェクトごとに Stdio ＋ 自動インデックス構築で動かすため、`uvx` または `npx` で即座に起動できます。
+引数未指定の場合、MCP サーバが起動されたプロジェクト（カレントディレクトリ）のコードベースを自動検出・増分インデックス（`.bm25_index.db`）の作成・同期を行います。
 
-```bash
-python bm25_search/mcp_server.py --stdio
+#### ① `uvx` (uv / Python) を使う場合
+```json
+{
+  "mcpServers": {
+    "bm25-code-search": {
+      "command": "uvx",
+      "args": ["mcp-server-bm25-code-search"],
+      "alwaysAllow": ["search"]
+    }
+  }
+}
 ```
 
-#### MCP クライアント設定例 (`mcp_config.json` / `mcp.json`)
+#### ② `npx` (Node.js / npm) を使う場合
+```json
+{
+  "mcpServers": {
+    "bm25-code-search": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-bm25-code-search"],
+      "alwaysAllow": ["search"]
+    }
+  }
+}
+```
 
+#### ③ ローカル Python での直接指定
 ```json
 {
   "mcpServers": {
@@ -81,7 +103,6 @@ python bm25_search/mcp_server.py --stdio
         "D:/path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py",
         "--stdio"
       ],
-      "cwd": "D:/path/to/mcp-server-bm25-code-search",
       "alwaysAllow": [
         "search"
       ]
@@ -90,8 +111,6 @@ python bm25_search/mcp_server.py --stdio
 }
 ```
 
-> **💡 自動承認 (`alwaysAllow`) について**  
-> `"alwaysAllow": ["search"]` を設定しておくことで、エージェントが検索ツールを呼ぶ際の実行確認ダイアログ（Submitボタン）をスキップし、スムーズに検索を行えるようになります。
 
 #### 💡 AI エージェントに `grep` 連打を抑止し BM25 検索を優先させる設定 (`AGENTS.md` / `CLAUDE.md`)
 
