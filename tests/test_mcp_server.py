@@ -63,3 +63,26 @@ def test_mcp_output_result_type():
     server = MCPServer()
     resp = server.discover(request_id=100)
     assert resp["result"]["resultType"] == "complete"
+
+
+def test_mcp_initialize():
+    server = MCPServer()
+    init_req = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "test-client", "version": "1.0"},
+        },
+    }
+    resp = server.handle_request(init_req)
+    assert resp is not None
+    assert resp["id"] == 1
+    assert "result" in resp
+    res = resp["result"]
+    assert res["protocolVersion"] == "2024-11-05"
+    assert res["serverInfo"]["name"] == "bm25-code-search"
+    assert "capabilities" in res
+

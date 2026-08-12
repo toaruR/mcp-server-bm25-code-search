@@ -308,6 +308,24 @@ TOOLS: list[dict] = sorted(
 # Core request handlers (each returns a JSON-RPC *result* payload)
 # ---------------------------------------------------------------------------
 
+def handle_initialize(request_id: Any, params: Optional[dict]) -> dict:
+    """Handle ``initialize`` -- backwards compatibility handshake for MCP 2024-11-05 clients."""
+    params = params or {}
+    protocol_version = params.get("protocolVersion", "2024-11-05")
+    return {
+        "protocolVersion": protocol_version,
+        "capabilities": {
+            "tools": {"listChanged": False},
+        },
+        "serverInfo": dict(SERVER_INFO),
+    }
+
+
+def handle_ping(request_id: Any, params: Optional[dict]) -> dict:
+    """Handle ``ping`` -- standard ping handler."""
+    return {}
+
+
 def handle_discover(request_id: Any, params: Optional[dict]) -> dict:
     """Handle ``server/discover`` -- advertise versions, capabilities, identity.
 
@@ -420,6 +438,12 @@ def dispatch(method: str, request_id: Any, params: Optional[dict]) -> Optional[d
     protocol/application error.  Returns ``None`` for notifications (which must
     not produce a response).
     """
+    if method == "initialize":
+        return handle_initialize(request_id, params)
+    if method in ("notifications/initialized", "initialized"):
+        return {}
+    if method == "ping":
+        return handle_ping(request_id, params)
     if method == "server/discover":
         return handle_discover(request_id, params)
     if method == "tools/list":
