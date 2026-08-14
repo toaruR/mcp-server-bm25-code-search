@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "bm25-code-search": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "bm25_search/mcp_server.py",
+        "--stdio"
+      ],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}

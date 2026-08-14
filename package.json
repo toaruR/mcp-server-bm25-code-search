@@ -10,6 +10,9 @@
   "files": [
     "bin/",
     "bm25_search/",
+    "skills/",
+    "plugin.json",
+    "mcp.json",
     "pyproject.toml",
     "README.md",
     "LICENSE"
@@ -17,9 +20,12 @@
   "keywords": [
     "mcp",
     "mcp-server",
+    "agent-plugins",
+    "agent-skills",
     "bm25",
     "code-search",
     "claude-code",
+    "cursor",
     "antigravity",
     "codex"
   ],

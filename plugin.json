@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "bm25-code-search",
+  "version": "1.0.0",
+  "description": "Fast, low-token BM25 code search engine & MCP server backed by SQLite FTS5 for AI coding agents.",
+  "author": {
+    "name": "mcp-server-bm25-code-search authors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "bm25",
+    "code-search",
+    "sqlite",
+    "fts5",
+    "claude-code",
+    "cursor",
+    "antigravity"
+  ]
+}

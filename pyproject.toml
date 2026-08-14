@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [
     { name = "mcp-server-bm25-code-search authors" }
 ]
-keywords = ["mcp", "bm25", "code-search", "sqlite", "fts5", "claude-code", "antigravity"]
+keywords = ["mcp", "agent-plugins", "agent-skills", "bm25", "code-search", "sqlite", "fts5", "claude-code", "cursor", "antigravity"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

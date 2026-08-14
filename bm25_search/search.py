@@ -483,6 +483,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """CLI entry point.  Prints the search result / fallback to stdout."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = build_arg_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
 

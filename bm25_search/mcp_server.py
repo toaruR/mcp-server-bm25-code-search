@@ -419,6 +419,13 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
         should_sync = SERVER_CONFIG.get("auto_sync", True)
     else:
         root_dir = SERVER_CONFIG["root"]
+        if root_dir == ".":
+            # auto detect root if cwd is not a repo
+            if not (Path.cwd() / ".git").exists():
+                fallback = Path(__file__).resolve().parent.parent
+                if (fallback / ".git").exists():
+                    root_dir = str(fallback)
+                    SERVER_CONFIG["root"] = root_dir
         db_path = str(Path(root_dir) / ".bm25_index.db")
         should_sync = SERVER_CONFIG.get("auto_sync", True)
 
@@ -429,7 +436,6 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
         except Exception:
             pass
 
-
     if db_path == ":memory:":
         raise McpError(
             code=-32602,
@@ -438,6 +444,7 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
         )
     try:
         conn = sqlite3.connect(db_path)
+        init_db(conn)
     except sqlite3.Error as exc:
         raise McpError(code=-32603, message=f"Index open failed: {exc}") from exc
 
@@ -647,6 +654,10 @@ class MCPServer:
 
 def run_stdio() -> None:
     """Read newline-delimited JSON-RPC requests from stdin; write to stdout."""
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -685,8 +696,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Run the stdio JSON-RPC transport loop (default behaviour).",
     )
     args = parser.parse_args(argv)
-
     root_path = os.path.abspath(args.root)
+    if args.root == "." and not (Path(root_path) / ".git").exists():
+        fallback = Path(__file__).resolve().parent.parent
+        if (fallback / ".git").exists():
+            root_path = str(fallback)
     SERVER_CONFIG["root"] = root_path
     SERVER_CONFIG["db_path"] = args.db
     SERVER_CONFIG["auto_sync"] = not args.no_auto_sync

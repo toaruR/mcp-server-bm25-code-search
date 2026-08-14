@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "bm25-code-search": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "${PLUGIN_ROOT}/bm25_search/mcp_server.py",
+        "--stdio"
+      ],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

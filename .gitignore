@@ -10,6 +10,7 @@ docs/knowledge-kit-usage.md
 __pycache__/
 *.pyc
 .knowledge-kit/source.json
+.knowledge-kit/update_kit.py
 .pytest_cache/
 .bm25_index.db
 workspaces/
