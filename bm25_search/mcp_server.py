@@ -697,12 +697,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
     root_path = os.path.abspath(args.root)
-    if args.root == "." and not (Path(root_path) / ".git").exists():
+    if args.db and args.root == ".":
+        db_parent = Path(args.db).resolve().parent
+        if db_parent.exists():
+            root_path = str(db_parent)
+    elif args.root == "." and not (Path(root_path) / ".git").exists():
         fallback = Path(__file__).resolve().parent.parent
         if (fallback / ".git").exists():
             root_path = str(fallback)
     SERVER_CONFIG["root"] = root_path
-    SERVER_CONFIG["db_path"] = args.db
+    SERVER_CONFIG["db_path"] = os.path.abspath(args.db) if args.db else None
     SERVER_CONFIG["auto_sync"] = not args.no_auto_sync
 
     run_stdio()

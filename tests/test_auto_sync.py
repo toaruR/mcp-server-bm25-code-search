@@ -92,3 +92,28 @@ def test_cli_main_root_option(temp_project, monkeypatch):
     assert response is not None
     assert (temp_project / ".bm25_index.db").is_file()
 
+
+def test_cli_main_db_option(temp_project, monkeypatch):
+    """Test CLI main parsing --db argument and auto-inferring project root."""
+    mcp_server.SERVER_CONFIG["root"] = "."
+    mcp_server.SERVER_CONFIG["db_path"] = None
+    mcp_server.SERVER_CONFIG["auto_sync"] = True
+
+    monkeypatch.setattr(mcp_server, "run_stdio", lambda: None)
+
+    custom_db = temp_project / "custom_index.db"
+    exit_code = mcp_server.main(["--db", str(custom_db)])
+    assert exit_code == 0
+    assert mcp_server.SERVER_CONFIG["db_path"] == os.path.abspath(str(custom_db))
+    assert mcp_server.SERVER_CONFIG["root"] == os.path.abspath(str(temp_project))
+
+    response = mcp_server.process_request({
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "search", "arguments": {"query": "authenticate_user"}},
+    })
+    assert response is not None
+    assert custom_db.is_file()
+    assert response["result"]["structuredContent"]["status"] == "ok"
+    assert "auth.py" in response["result"]["structuredContent"]["results"][0]["filepath"]
+
+
