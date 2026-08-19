@@ -67,6 +67,7 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 ### 4.2 チャンキング戦略
 - 80行固定ブロック / 20行オーバーラップ（ストライド 60行）。
 - `start_line` / `end_line` は 1-based かつ inclusive。
+- **境界スナップ（2-A、既定で有効）**: 理想境界（80行目）が関数・クラスの途中に来る場合、直後最大10行以内に空行があれば、そこまでチャンク終端を前方にのみ延長する（[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) 施策 2-A）。空行に依存する言語非依存のヒューリスティックであり、対応言語判定・構文解析は行わない。近傍に空行が無い場合（JSON/CSS/圧縮コード等）は従来通りの固定長カットにフォールバックする。前方拡張のみのため次チャンクとのカバレッジの穴は発生しない。`chunk_lines(..., snap_boundaries=False)` で無効化可能。
 
 ### 4.3 増分更新 & HEAD 追従
 - `repo_state` に記録された前回コミットハッシュと現在の `HEAD` を比較。
@@ -83,12 +84,34 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 
 ### 5.1 BM25 スコアリング & パスブースト
 - FTS5 `bm25(code_fts, 3.0, 1.0)` を使用し、`filepath` への一致を `index_text`（本文）より 3.0 倍重み付け。
+- **同一ファイル内チャンクの多様化（1-A、既定で有効）**: `search()` は既定で `top_k` の3倍（最低20件）のプールを取得したうえで、同一 `filepath` かつ `start_line` の差が60行未満（オーバーラップのストライドと同値）のチャンクをオーバーラップ由来の重複とみなし、クラスタ内でスコア最良の1件のみを残す（[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) 施策 1-A）。別ファイルや同一ファイル内でも離れた位置のチャンクは間引かれない。`search(..., diversify=False)` で無効化可能（BM25 スコア自体の計算は変更しない）。
 
 ### 5.2 出力フォーマット & コンテキスト保護
-- CLI: `python search.py "<query>" --top-k 5 --format [markdown|json] --max-bytes 4000 --mode [OR|AND]`
+- CLI: `python search.py "<query>" --top-k 5 --format [markdown|json] --max-bytes 4000 --mode [OR|AND] --queries <言い換えクエリ...>`
 - `--max-bytes`: 指定バイト数制限時、UTF-8 のマルチバイト文字境界を壊さない安全な文字単位の切り詰めを実施。
 - **Zero-Match フォールバック**: 検索ヒットが 0 件の場合、以下の固定メッセージを含む構造化 JSON/レスポンスを返却し、エージェントへ grep/glob への切り替えを促進:
   `BM25 match zero. Recommended Fallback: Use standard grep_search or glob to locate exact symbol definitions.`
+
+### 5.3 複数クエリファンアウト & 比較材料（`search_multi` / `confidence`）
+
+[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) の施策 2-B / 1-B に対応。
+
+- **`queries`（複数クエリファンアウト）**: `query` に加え、言い換えクエリを最大5件まで `queries` として渡すと、`search_multi()` が各クエリを個別に（`top_k` を広げたプールで）検索し、`(filepath, start_line, end_line)` をキーに Reciprocal Rank Fusion（`1 / (60 + rank)` を積算、標準的な RRF 定数 k=60）で統合して 1 回のレスポンスで返す。複数クエリでヒットしたチャンクは `fusion_score` が加算され上位に来る。各結果には `matched_queries`（ヒットしたクエリ一覧）が付与される。
+  - `queries` を渡さない場合（または結果として単一クエリに正規化された場合）は `search()` と完全に同一の結果を返す（後方互換）。
+- **`confidence`（比較材料）**: レスポンス直下に、1位と2位の相対関係を示す `{"label", "top_score", "runner_up_score", "score_gap"}` を常時付与する。
+  - `label` は `none`（0件）/ `single`（1件のみ）/ `dominant`（1位が明確に優勢）/ `close_contest`（僅差の候補が並ぶ）のいずれか。
+  - `queries` ファンアウト時は `fusion_score` の比（＝複数クエリへの収束度）で、単一クエリ時は BM25 スコアの絶対値比で判定する（閾値 `DOMINANT_RATIO = 1.5`）。
+  - サーバー側はこの値で何も判断・分岐しない。呼び出し元エージェントが「1位を信頼するか」「上位複数件を見るか」「再検索するか」を判断するための材料として渡すのみ。
+
+### 5.4 低確信時フォールバックの拡充（`low_confidence_hint`）
+
+[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) の施策 1-C に対応。0件時の Zero-Match フォールバック（5.2）とは別に、**ヒットはしたが薄い／弱い**場合にも構造化ヒントを追加する。
+
+- レスポンス JSON のトップレベルに `low_confidence_hint`（`string | null`）を常時付与する。
+- 以下いずれかを満たすと非 `null`（同義語・別粒度キーワードでの再検索を推奨する固定文言）になる:
+  - **ヒット件数が薄い**: 返却件数が `max(1, int(top_k * 0.4))` 未満（`top_k` が渡された場合のみ判定）。
+  - **上位スコアが弱い**: 上位1件の生 BM25 スコアが `WEAK_SCORE_THRESHOLD = -1.0` より大きい（0に近い＝弱いマッチ）。
+- `DOMINANT_RATIO` 同様、暫定的で調整可能なヒューリスティック定数である。
 
 ---
 
@@ -101,6 +124,7 @@ MCP (Model Context Protocol) 2026-07-28 仕様に準拠したステートレス 
   - `package.json` + `bin/cli.js`: Node.js / `npx` 対応。`npx -y mcp-server-bm25-code-search` 実行時に `uvx` やローカル Python プロセスをパイプ起動する Node.js Stdio ラッパーを提供。
 - **プロジェクト自動検出 & 自動インデックス同期 (Auto Sync)**:
   - CLI 引数 `--root <DIR>` (既定: カレントディレクトリ `.`) によりプロジェクトルートを指定。
+  - `--db <PATH>` 指定時は、その親ディレクトリをプロジェクトルートとして自動認識（`--root` 未指定時）。
   - サーバー起動時および `tools/call` の `search` 呼び出し時、暗黙のインデックスパス（`<root>/.bm25_index.db`）に対して `indexer.sync_index()` を自動実行。クライアント側での事前インデックス作成コマンド実行を不要化。
 - **ステートレス RPC**: `initialize` / `initialized` ハンドシェイクおよび `Mcp-Session-Id` を廃止し、全リクエストが自己完結型。ただし、従来の 2024-11-05 仕様の MCP クライアントとの接続互換性を保つため、`initialize`, `initialized`, `ping` RPC ハンドラを具備。
 - **`server/discover`**: プロトコルバージョン (`2026-07-28`)、サーバ機能 (`stateless: True`)、サーバ情報を応答。

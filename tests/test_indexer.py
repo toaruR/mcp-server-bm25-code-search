@@ -46,6 +46,25 @@ def test_80_20_chunking_overlap():
     assert chunks[2]["end_line"] == 150
 
 
+def test_chunk_boundary_snaps_forward_to_blank_line():
+    # Ideal 80-line boundary lands mid-block; a blank line a few lines later
+    # (line 83, 1-based) should pull the chunk end forward to just past it.
+    lines = [f"line {i}\n" for i in range(1, 151)]
+    lines[82] = "\n"  # 0-based index 82 == line 83 (1-based), within lookahead
+
+    chunks = chunk_lines(lines, chunk_size=80, overlap=20)
+    assert chunks[0]["end_line"] == 83
+    assert lines[chunks[0]["end_line"] - 1].strip() == ""
+
+
+def test_chunk_boundary_snap_can_be_disabled():
+    lines = [f"line {i}\n" for i in range(1, 151)]
+    lines[82] = "\n"
+
+    chunks = chunk_lines(lines, chunk_size=80, overlap=20, snap_boundaries=False)
+    assert chunks[0]["end_line"] == 80
+
+
 def test_incremental_indexing_with_git_diff(tmp_path):
     (tmp_path / "app.py").write_text("def run(): pass\n", encoding="utf-8")
     db_path = tmp_path / ".bm25_index.db"

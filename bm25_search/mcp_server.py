@@ -81,10 +81,18 @@ _CJK_RE = re.compile(r"[぀-ヿ㐀-鿿]+")
 _WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|[぀-ヿ㐀-鿿]+")
 
 try:  # pragma: no cover - depends on integration order
-    from bm25_search.search import search as _sibling_search  # type: ignore
+    from bm25_search.search import (  # type: ignore
+        search as _sibling_search,
+        search_multi as _sibling_search_multi,
+        compute_confidence as _sibling_compute_confidence,
+        low_confidence_hint as _sibling_low_confidence_hint,
+    )
     _HAS_SIBLING = True
 except Exception:  # pragma: no cover - standalone fallback
     _sibling_search = None
+    _sibling_search_multi = None
+    _sibling_compute_confidence = None
+    _sibling_low_confidence_hint = None
     _HAS_SIBLING = False
 
 
@@ -201,12 +209,37 @@ def insert_chunk(conn: sqlite3.Connection,
     return int(cur.lastrowid)
 
 
+#: Local fallback copy of :data:`bm25_search.search.ADJACENT_LINE_THRESHOLD`.
+ADJACENT_LINE_THRESHOLD = 60
+
+
+def _diversify_same_file(results: list[dict], top_k: int,
+                         adjacent_threshold: int = ADJACENT_LINE_THRESHOLD) -> list[dict]:
+    """Local fallback copy of :func:`bm25_search.search._diversify_same_file`."""
+    kept: list[dict] = []
+    kept_keys: list[tuple[str, int]] = []
+    for r in results:
+        is_adjacent_dup = any(
+            r["filepath"] == fp and abs(r["start_line"] - sl) < adjacent_threshold
+            for fp, sl in kept_keys
+        )
+        if is_adjacent_dup:
+            continue
+        kept.append(r)
+        kept_keys.append((r["filepath"], r["start_line"]))
+        if len(kept) >= top_k:
+            break
+    return kept
+
+
 def search(conn: sqlite3.Connection,
            raw_query: str,
            top_k: int = 5,
-           mode: str = "OR") -> list[dict]:
+           mode: str = "OR",
+           diversify: bool = True) -> list[dict]:
     """Search the index and return up to *top_k* ranked chunk dicts."""
     query = pre_tokenize_query(raw_query, mode)
+    pool_k = max(top_k * 3, 20) if diversify else top_k
     rows = conn.execute(
         """
         SELECT c.filepath, c.start_line, c.end_line, c.raw_snippet,
@@ -217,9 +250,9 @@ def search(conn: sqlite3.Connection,
         ORDER BY score
         LIMIT ?
         """,
-        (BM25_WEIGHTS[0], BM25_WEIGHTS[1], query, top_k),
+        (BM25_WEIGHTS[0], BM25_WEIGHTS[1], query, pool_k),
     ).fetchall()
-    return [
+    results = [
         {
             "filepath": r[0],
             "start_line": r[1],
@@ -229,6 +262,90 @@ def search(conn: sqlite3.Connection,
         }
         for r in rows
     ]
+    if diversify:
+        return _diversify_same_file(results, top_k)
+    return results[:top_k]
+
+
+#: Ratio of |top_score| / |runner_up_score| above which the top hit is
+#: considered to clearly dominate the runner-up (see :func:`compute_confidence`).
+DOMINANT_RATIO = 1.5
+
+#: Standard RRF smoothing constant (Cormack et al., 2009).
+DEFAULT_RRF_K = 60
+
+
+def compute_confidence(results: list[dict], dominant_ratio: float = DOMINANT_RATIO) -> dict:
+    """Local fallback copy of :func:`bm25_search.search.compute_confidence`."""
+    n = len(results)
+    if n == 0:
+        return {"label": "none", "top_score": None,
+                "runner_up_score": None, "score_gap": None}
+    top_score = results[0]["score"]
+    if n == 1:
+        return {"label": "single", "top_score": top_score,
+                "runner_up_score": None, "score_gap": None}
+    runner_up_score = results[1]["score"]
+    score_gap = runner_up_score - top_score
+
+    if "fusion_score" in results[0]:
+        top_metric = results[0]["fusion_score"]
+        runner_up_metric = results[1]["fusion_score"]
+        ratio = (top_metric / runner_up_metric) if runner_up_metric > 1e-12 else float("inf")
+    else:
+        if abs(runner_up_score) < 1e-9:
+            ratio = float("inf") if abs(top_score) >= 1e-9 else 1.0
+        else:
+            ratio = abs(top_score) / abs(runner_up_score)
+
+    label = "dominant" if ratio >= dominant_ratio else "close_contest"
+    return {"label": label, "top_score": top_score,
+            "runner_up_score": runner_up_score, "score_gap": score_gap}
+
+
+def search_multi(conn: sqlite3.Connection,
+                 raw_queries: list[str],
+                 top_k: int = 5,
+                 mode: str = "OR",
+                 pool_k: Optional[int] = None,
+                 rrf_k: int = DEFAULT_RRF_K) -> list[dict]:
+    """Local fallback copy of :func:`bm25_search.search.search_multi`."""
+    seen_q: set[str] = set()
+    queries: list[str] = []
+    for q in raw_queries:
+        q = (q or "").strip()
+        if q and q not in seen_q:
+            seen_q.add(q)
+            queries.append(q)
+    if not queries:
+        return []
+    if len(queries) == 1:
+        return search(conn, queries[0], top_k=top_k, mode=mode)
+
+    effective_pool_k = pool_k or max(top_k * 3, 20)
+    fused: dict[tuple, dict] = {}
+    for q in queries:
+        for rank, r in enumerate(search(conn, q, top_k=effective_pool_k, mode=mode), start=1):
+            key = (r["filepath"], r["start_line"], r["end_line"])
+            entry = fused.get(key)
+            contribution = 1.0 / (rrf_k + rank)
+            if entry is None:
+                entry = {
+                    "filepath": r["filepath"],
+                    "start_line": r["start_line"],
+                    "end_line": r["end_line"],
+                    "raw_snippet": r["raw_snippet"],
+                    "score": r["score"],
+                    "fusion_score": 0.0,
+                    "matched_queries": [],
+                }
+                fused[key] = entry
+            entry["fusion_score"] += contribution
+            entry["score"] = min(entry["score"], r["score"])
+            entry["matched_queries"].append(q)
+
+    merged = sorted(fused.values(), key=lambda d: d["fusion_score"], reverse=True)
+    return merged[:top_k]
 
 
 ZERO_MATCH_MESSAGE = (
@@ -248,12 +365,41 @@ def zero_match_fallback(query: Optional[str] = None) -> dict:
     return resp
 
 
-def format_json(results: list[dict], query: Optional[str] = None) -> str:
+#: Local fallback copy of :data:`bm25_search.search.WEAK_SCORE_THRESHOLD`.
+WEAK_SCORE_THRESHOLD = -1.0
+
+#: Local fallback copy of :data:`bm25_search.search.LOW_CONFIDENCE_MESSAGE`.
+LOW_CONFIDENCE_MESSAGE = (
+    "Low-confidence match: hit count or top score is weak. Consider "
+    "re-searching with a synonym or a different granularity keyword "
+    "(broader/narrower term) before trusting these results."
+)
+
+
+def low_confidence_hint(results: list[dict], top_k: Optional[int] = None,
+                        count_ratio: float = 0.4,
+                        weak_score_threshold: float = WEAK_SCORE_THRESHOLD) -> Optional[str]:
+    """Local fallback copy of :func:`bm25_search.search.low_confidence_hint`."""
+    if not results:
+        return None
+    sparse = top_k is not None and len(results) < max(1, int(top_k * count_ratio))
+    weak = results[0]["score"] > weak_score_threshold
+    if sparse or weak:
+        return LOW_CONFIDENCE_MESSAGE
+    return None
+
+
+def format_json(results: list[dict], query: Optional[str] = None,
+                top_k: Optional[int] = None) -> str:
     """Render *results* as a JSON document (envelope with a results list)."""
+    confidence_fn = _sibling_compute_confidence if _HAS_SIBLING and _sibling_compute_confidence else compute_confidence
+    hint_fn = _sibling_low_confidence_hint if _HAS_SIBLING and _sibling_low_confidence_hint else low_confidence_hint
     payload = {
         "status": "ok",
         "query": query,
         "count": len(results),
+        "confidence": confidence_fn(results),
+        "low_confidence_hint": hint_fn(results, top_k=top_k),
         "results": list(results),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -283,6 +429,19 @@ def _tool_search_definition() -> dict:
                     "description": (
                         "The search query.  Japanese, camelCase and snake_case "
                         "are all tokenised the same way the index was built."
+                    ),
+                },
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 5,
+                    "description": (
+                        "Optional additional paraphrased queries.  When given, "
+                        "'query' plus every entry here are searched and merged "
+                        "into one ranked list via Reciprocal Rank Fusion (RRF) "
+                        "in a single round trip -- useful when a single query "
+                        "risks missing relevant chunks due to vocabulary "
+                        "mismatch."
                     ),
                 },
                 "top_k": {
@@ -403,6 +562,12 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
     raw_query = arguments.get("query")
     if not isinstance(raw_query, str) or not raw_query:
         raise McpError(code=-32602, message="Argument 'query' is required.")
+    extra_queries = arguments.get("queries")
+    if extra_queries is not None:
+        if (not isinstance(extra_queries, list)
+                or not all(isinstance(q, str) for q in extra_queries)):
+            raise McpError(code=-32602,
+                          message="'queries' must be an array of strings.")
     top_k = arguments.get("top_k", 5)
     mode = arguments.get("mode", "OR")
     if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1:
@@ -449,10 +614,14 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
         raise McpError(code=-32603, message=f"Index open failed: {exc}") from exc
 
 
+    all_queries = [raw_query, *(extra_queries or [])]
     try:
         # Prefer the sibling implementation when present, for a single source
         # of truth; the local copy is byte-for-byte equivalent otherwise.
-        if _HAS_SIBLING and _sibling_search is not None:
+        if len(all_queries) > 1:
+            search_multi_fn = _sibling_search_multi if _HAS_SIBLING and _sibling_search_multi else search_multi
+            results = search_multi_fn(conn, all_queries, top_k=top_k, mode=mode)
+        elif _HAS_SIBLING and _sibling_search is not None:
             results = _sibling_search(conn, raw_query, top_k=top_k, mode=mode)
         else:
             results = search(conn, raw_query, top_k=top_k, mode=mode)
@@ -462,7 +631,9 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
     if not results:
         payload = zero_match_fallback(query=raw_query)
     else:
-        payload = json.loads(format_json(results, query=raw_query))
+        payload = json.loads(format_json(results, query=raw_query, top_k=top_k))
+        if extra_queries:
+            payload["queries_used"] = all_queries
 
     return {
         "resultType": "complete",

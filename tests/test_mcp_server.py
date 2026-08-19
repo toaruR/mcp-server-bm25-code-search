@@ -65,6 +65,86 @@ def test_mcp_output_result_type():
     assert resp["result"]["resultType"] == "complete"
 
 
+def test_mcp_search_with_queries_fanout(tmp_path):
+    db_path = tmp_path / "test.db"
+    conn = init_db(str(db_path))
+    insert_chunk(conn, "src/auth.py", 1, 10,
+                 "def authenticate_user(): validate_session_token()")
+    insert_chunk(conn, "src/other_auth.py", 1, 10,
+                 "def authenticate_user(): pass")
+    conn.close()
+
+    server = MCPServer()
+    resp = server.call_tool(
+        name="search",
+        arguments={
+            "query": "authenticate_user",
+            "queries": ["session_token"],
+            "db_path": str(db_path),
+        },
+        request_id=4,
+    )
+    result = resp["result"]
+    assert result["isError"] is False
+    structured = result["structuredContent"]
+    assert structured["queries_used"] == ["authenticate_user", "session_token"]
+    assert structured["results"][0]["filepath"] == "src/auth.py"
+    assert structured["results"][0]["matched_queries"] == [
+        "authenticate_user", "session_token",
+    ]
+    assert "confidence" in structured
+
+
+def test_mcp_search_response_includes_confidence(tmp_path):
+    db_path = tmp_path / "test.db"
+    conn = init_db(str(db_path))
+    insert_chunk(conn, "src/mcp_server.py", 1, 20, "def handle_discover(): pass")
+    conn.close()
+
+    server = MCPServer()
+    resp = server.call_tool(
+        name="search",
+        arguments={"query": "handle_discover", "db_path": str(db_path)},
+        request_id=5,
+    )
+    structured = resp["result"]["structuredContent"]
+    assert "confidence" in structured
+    assert "queries_used" not in structured
+
+
+def test_mcp_search_invalid_queries_type(tmp_path):
+    db_path = tmp_path / "test.db"
+    conn = init_db(str(db_path))
+    insert_chunk(conn, "src/mcp_server.py", 1, 20, "def handle_discover(): pass")
+    conn.close()
+
+    server = MCPServer()
+    resp = server.call_tool(
+        name="search",
+        arguments={"query": "handle_discover", "queries": "not_a_list", "db_path": str(db_path)},
+        request_id=6,
+    )
+    assert "error" in resp
+    assert resp["error"]["code"] == -32602
+
+
+def test_mcp_search_includes_low_confidence_hint_when_sparse(tmp_path):
+    db_path = tmp_path / "test.db"
+    conn = init_db(str(db_path))
+    insert_chunk(conn, "src/mcp_server.py", 1, 20, "def handle_discover(): pass")
+    conn.close()
+
+    server = MCPServer()
+    resp = server.call_tool(
+        name="search",
+        arguments={"query": "handle_discover", "top_k": 10, "db_path": str(db_path)},
+        request_id=7,
+    )
+    structured = resp["result"]["structuredContent"]
+    assert "low_confidence_hint" in structured
+    assert structured["low_confidence_hint"] is not None
+
+
 def test_mcp_initialize():
     server = MCPServer()
     init_req = {

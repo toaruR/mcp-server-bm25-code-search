@@ -191,9 +191,34 @@ collect_indexable_files = collect_files
 # Chunking: 80-line blocks / 20-line overlap
 # ---------------------------------------------------------------------------
 
+#: Default forward look-ahead (in lines) for :func:`chunk_lines`'s boundary
+#: snapping (design-spec gap-closing plan, item 2-A).
+DEFAULT_SNAP_LOOKAHEAD = 10
+
+
+def _snap_end_to_blank_line(lines: Sequence[str], ideal_end: int, total: int,
+                            lookahead: int) -> int:
+    """Extend *ideal_end* forward to just past the nearest blank line.
+
+    Scans ``lines[ideal_end : ideal_end + lookahead]`` only -- never
+    backward -- for the first blank line and, if found, returns its index+1
+    so the blank line becomes the chunk's last line.  Falls back to
+    *ideal_end* unchanged when no blank line is found in range.  Forward-only
+    snapping guarantees the chunk still covers ``[start, ideal_end)`` in
+    full, so no coverage gap can appear between consecutive chunks.
+    """
+    limit = min(ideal_end + lookahead, total)
+    for i in range(ideal_end, limit):
+        if lines[i].strip() == "":
+            return i + 1
+    return ideal_end
+
+
 def chunk_lines(lines: Sequence[str],
                 chunk_size: int = CHUNK_SIZE,
-                overlap: int = CHUNK_OVERLAP) -> list[dict]:
+                overlap: int = CHUNK_OVERLAP,
+                snap_boundaries: bool = True,
+                snap_lookahead: int = DEFAULT_SNAP_LOOKAHEAD) -> list[dict]:
     """Split *lines* into overlapping fixed blocks.
 
     Returns a list of dicts::
@@ -206,6 +231,15 @@ def chunk_lines(lines: Sequence[str],
     last ``overlap`` lines of its predecessor.  A trailing remainder shorter
     than *chunk_size* is emitted as a final chunk; a chunk that would be fully
     contained in the previous one is not emitted (no duplicates).
+
+    When *snap_boundaries* is true (default), a non-final chunk's end is
+    extended forward -- up to *snap_lookahead* lines -- to the nearest blank
+    line, approximating a function/class boundary without any per-language
+    parsing (design-spec gap-closing plan, item 2-A).  Most languages in the
+    target extension list separate top-level definitions with a blank line,
+    so this is a language-agnostic, standard-library-only heuristic; content
+    with no nearby blank line (dense config formats, minified code) falls
+    back to the exact fixed-length cut unchanged.
     """
     if chunk_size <= 0:
         raise ValueError("chunk_size must be positive")
@@ -221,6 +255,8 @@ def chunk_lines(lines: Sequence[str],
     start = 0
     while start < total:
         end = min(start + chunk_size, total)
+        if snap_boundaries and end < total:
+            end = _snap_end_to_blank_line(lines, end, total, snap_lookahead)
         block = list(lines[start:end])
         chunks.append({
             "start_line": start + 1,
@@ -845,6 +881,7 @@ class Indexer:
 __all__ = [
     # constants
     "CHUNK_SIZE", "CHUNK_OVERLAP", "CHUNK_STRIDE", "DB_FILENAME",
+    "DEFAULT_SNAP_LOOKAHEAD",
     "TARGET_EXTENSIONS", "DEFAULT_EXTENSIONS", "SUPPORTED_EXTENSIONS",
     "INDEX_EXTENSIONS", "LAST_COMMIT_KEY",
     # git / collection
