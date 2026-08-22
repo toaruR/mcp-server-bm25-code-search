@@ -13,6 +13,3 @@ __pycache__/
 .knowledge-kit/update_kit.py
 .pytest_cache/
 .bm25_index.db
-workspaces/
-dashboard.html
-dashboard.md
