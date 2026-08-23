@@ -46,6 +46,7 @@ import os
 import re
 import sqlite3
 import sys
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Optional
 
@@ -212,9 +213,14 @@ def insert_chunk(conn: sqlite3.Connection,
 #: Local fallback copy of :data:`bm25_search.search.ADJACENT_LINE_THRESHOLD`.
 ADJACENT_LINE_THRESHOLD = 60
 
+#: Local fallback copy of :data:`bm25_search.search.NEAR_DUPLICATE_THRESHOLD`.
+NEAR_DUPLICATE_THRESHOLD = 0.9
+
 
 def _diversify_same_file(results: list[dict], top_k: int,
-                         adjacent_threshold: int = ADJACENT_LINE_THRESHOLD) -> list[dict]:
+                         adjacent_threshold: int = ADJACENT_LINE_THRESHOLD,
+                         near_duplicate_threshold: float = NEAR_DUPLICATE_THRESHOLD
+                         ) -> list[dict]:
     """Local fallback copy of :func:`bm25_search.search._diversify_same_file`."""
     kept: list[dict] = []
     kept_keys: list[tuple[str, int]] = []
@@ -225,6 +231,24 @@ def _diversify_same_file(results: list[dict], top_k: int,
         )
         if is_adjacent_dup:
             continue
+
+        near_dup = False
+        for k in kept:
+            if k["filepath"] == r["filepath"]:
+                continue
+            ratio = SequenceMatcher(None, k["raw_snippet"], r["raw_snippet"]).ratio()
+            if ratio >= near_duplicate_threshold:
+                k.setdefault("similar_to", []).append({
+                    "filepath": r["filepath"],
+                    "start_line": r["start_line"],
+                    "end_line": r["end_line"],
+                    "similarity": round(ratio, 3),
+                })
+                near_dup = True
+                break
+        if near_dup:
+            continue
+
         kept.append(r)
         kept_keys.append((r["filepath"], r["start_line"]))
         if len(kept) >= top_k:

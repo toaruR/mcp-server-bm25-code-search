@@ -38,6 +38,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from difflib import SequenceMatcher
 from typing import Optional, Sequence
 
 # ---------------------------------------------------------------------------
@@ -279,17 +280,35 @@ def insert_chunk(conn: sqlite3.Connection,
 #: here (design-spec gap-closing plan, item 1-A).
 ADJACENT_LINE_THRESHOLD = 60
 
+#: ``difflib.SequenceMatcher.ratio()`` above which two chunks from
+#: *different* files are treated as near-duplicate content -- e.g. the same
+#: source file copied into a git worktree/vendored directory under another
+#: path -- and merged into one result (see :func:`_diversify_same_file`).
+NEAR_DUPLICATE_THRESHOLD = 0.9
+
 
 def _diversify_same_file(results: Sequence[dict], top_k: int,
-                         adjacent_threshold: int = ADJACENT_LINE_THRESHOLD) -> list[dict]:
-    """Thin out same-file chunks that are adjacent (overlap-derived duplicates).
+                         adjacent_threshold: int = ADJACENT_LINE_THRESHOLD,
+                         near_duplicate_threshold: float = NEAR_DUPLICATE_THRESHOLD
+                         ) -> list[dict]:
+    """Thin out overlap duplicates and annotate cross-file near-duplicates.
 
-    Walks *results* best-first and greedily keeps a result unless some
-    already-kept result has the same ``filepath`` and a ``start_line`` within
-    *adjacent_threshold* lines -- in that case the two chunks almost
-    certainly came from the same fixed-length overlap window, so only the
-    best-scoring one is kept.  Chunks from a different file, or far apart in
-    the same file, are never dropped.  Stops once *top_k* results are kept.
+    Walks *results* best-first and greedily keeps a result unless:
+
+    * some already-kept result has the same ``filepath`` and a ``start_line``
+      within *adjacent_threshold* lines -- almost certainly the same
+      fixed-length overlap window, so only the best-scoring one is kept and
+      the candidate is dropped outright; or
+    * some already-kept result has a *different* ``filepath`` but
+      near-identical ``raw_snippet`` content (``SequenceMatcher.ratio()`` >=
+      *near_duplicate_threshold*, e.g. the same file copied into a worktree
+      under a different path) -- the candidate is dropped from the result
+      list but recorded under the kept result's ``similar_to`` key, so an
+      agent can still see that another (near-)copy exists and where.
+
+    Chunks from a different file that are not near-duplicate content, or far
+    apart in the same file, are never dropped. Stops once *top_k* results are
+    kept (near-duplicate annotations don't count against *top_k*).
     """
     kept: list[dict] = []
     kept_keys: list[tuple[str, int]] = []
@@ -300,6 +319,24 @@ def _diversify_same_file(results: Sequence[dict], top_k: int,
         )
         if is_adjacent_dup:
             continue
+
+        near_dup = False
+        for k in kept:
+            if k["filepath"] == r["filepath"]:
+                continue
+            ratio = SequenceMatcher(None, k["raw_snippet"], r["raw_snippet"]).ratio()
+            if ratio >= near_duplicate_threshold:
+                k.setdefault("similar_to", []).append({
+                    "filepath": r["filepath"],
+                    "start_line": r["start_line"],
+                    "end_line": r["end_line"],
+                    "similarity": round(ratio, 3),
+                })
+                near_dup = True
+                break
+        if near_dup:
+            continue
+
         kept.append(r)
         kept_keys.append((r["filepath"], r["start_line"]))
         if len(kept) >= top_k:
@@ -639,6 +676,12 @@ def format_markdown(results: Sequence[dict], query: Optional[str] = None,
         if "fusion_score" in r:
             matched = ", ".join(r.get("matched_queries", []))
             lines.append(f"fusion_score: {r['fusion_score']:.6f} (matched: {matched})")
+        if r.get("similar_to"):
+            for s in r["similar_to"]:
+                lines.append(
+                    f"similar_to: {s['filepath']} (lines {s['start_line']}-{s['end_line']}, "
+                    f"similarity: {s['similarity']:.3f})"
+                )
         lines.append("")
         lines.append("```")
         lines.append(r["raw_snippet"])

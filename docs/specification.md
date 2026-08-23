@@ -85,6 +85,7 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 ### 5.1 BM25 スコアリング & パスブースト
 - FTS5 `bm25(code_fts, 3.0, 1.0)` を使用し、`filepath` への一致を `index_text`（本文）より 3.0 倍重み付け。
 - **同一ファイル内チャンクの多様化（1-A、既定で有効）**: `search()` は既定で `top_k` の3倍（最低20件）のプールを取得したうえで、同一 `filepath` かつ `start_line` の差が60行未満（オーバーラップのストライドと同値）のチャンクをオーバーラップ由来の重複とみなし、クラスタ内でスコア最良の1件のみを残す（[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) 施策 1-A）。別ファイルや同一ファイル内でも離れた位置のチャンクは間引かれない。`search(..., diversify=False)` で無効化可能（BM25 スコア自体の計算は変更しない）。
+- **別ファイル間の近似重複の統合（1-A拡張）**: 同じプール内で `filepath` が異なる2チャンクの `raw_snippet` が `difflib.SequenceMatcher.ratio() >= NEAR_DUPLICATE_THRESHOLD`（既定 0.9）の場合、スコア最良の1件のみを結果に残し、劣後する側は削除ではなく生き残った結果の `similar_to` キー（`{filepath, start_line, end_line, similarity}` のリスト）に記録する。git worktree にソースツリーがそのまま埋め込まれている等、同一内容が別パスの下で二重にインデックスされているケース（`_diversify_same_file()` 内、`search.py` と `mcp_server.py` の組込みフォールバックコピー両方に実装）で `top_k` 枠が重複コンテンツに埋め尽くされるのを防ぐ。
 
 ### 5.2 出力フォーマット & コンテキスト保護
 - CLI: `python search.py "<query>" --top-k 5 --format [markdown|json] --max-bytes 4000 --mode [OR|AND] --queries <言い換えクエリ...>`

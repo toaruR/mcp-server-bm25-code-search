@@ -169,17 +169,52 @@ def test_search_diversify_thins_adjacent_same_file_chunks():
         insert_chunk(conn, "src/big.py", 31, 110, "def widget_handler(): pass")
         # Far away in the same file -> not part of the cluster, kept.
         insert_chunk(conn, "src/big.py", 200, 280, "def widget_handler(): pass")
-        # Different file -> always kept regardless of adjacency.
-        insert_chunk(conn, "src/other.py", 1, 80, "def widget_handler(): pass")
+        # Different file, genuinely different content -> always kept
+        # regardless of adjacency (not a near-duplicate).
+        insert_chunk(conn, "src/other.py", 1, 80,
+                     "def widget_handler():\n    logging.info('unrelated branch')\n    return run_other_pipeline_entirely()")
 
         results = search(conn, "widget_handler", top_k=5, diversify=True)
         assert len(results) == 3
         same_file_starts = [r["start_line"] for r in results if r["filepath"] == "src/big.py"]
         assert len(same_file_starts) == 2
         assert not (1 in same_file_starts and 31 in same_file_starts)
+        assert any(r["filepath"] == "src/other.py" for r in results)
+        assert all("similar_to" not in r for r in results)
 
         results_raw = search(conn, "widget_handler", top_k=5, diversify=False)
         assert len(results_raw) == 4
+    finally:
+        conn.close()
+
+
+def test_search_diversify_merges_near_duplicate_cross_file_chunks():
+    """A file copied into another path (e.g. an embedded git worktree) is
+    near-identical content under a different filepath -- it should be merged
+    into the best-scoring result and annotated under `similar_to`, instead of
+    crowding out other, genuinely different hits."""
+    conn = init_db(":memory:")
+    try:
+        snippet = "def widget_handler():\n    validate(payload)\n    return dispatch(payload)"
+        insert_chunk(conn, "src/harness/widget.py", 1, 80, snippet)
+        # Same content copied under a worktree-style nested path.
+        insert_chunk(conn, "src/workspaces/T1/harness/widget.py", 1, 80, snippet)
+        # A genuinely different hit that must not be crowded out.
+        insert_chunk(conn, "src/other_widget_handler.py", 1, 80,
+                     "def widget_handler():\n    raise NotImplementedError('stub')")
+
+        results = search(conn, "widget_handler", top_k=5, diversify=True)
+        filepaths = [r["filepath"] for r in results]
+        assert len(results) == 2
+        assert "src/workspaces/T1/harness/widget.py" not in filepaths
+
+        kept = next(r for r in results if r["filepath"] == "src/harness/widget.py")
+        assert kept["similar_to"] == [{
+            "filepath": "src/workspaces/T1/harness/widget.py",
+            "start_line": 1,
+            "end_line": 80,
+            "similarity": 1.0,
+        }]
     finally:
         conn.close()
 
