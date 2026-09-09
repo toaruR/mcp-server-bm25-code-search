@@ -13,3 +13,16 @@ __pycache__/
 .knowledge-kit/update_kit.py
 .pytest_cache/
 .bm25_index.db
+.knowledge-kit/
+.claude/settings.json
+.claude/skills/
+.claude/agents/
+.claude/hooks/
+.codex/config.toml
+.codex/agents/
+.codex/hooks/
+.agents/skills/
+.agents/mcp_config.json
+.mcp.json
+.cursor/mcp.json
+.strict-goal/

@@ -15,6 +15,7 @@
     "mcp.json",
     "pyproject.toml",
     "README.md",
+    "README.ja.md",
     "LICENSE"
   ],
   "keywords": [

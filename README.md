@@ -1,68 +1,70 @@
 # mcp-server-bm25-code-search
 
-AI コーディングエージェント（VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw 等）におけるファイル検索を高速化・低トークン化するための、**Agent Plugins 規格準拠の SQLite FTS5 ローカル BM25 コード検索プラグイン & MCP サーバ**です。
+**English** | [日本語](README.ja.md)
+
+Fast, low-token BM25 local code search plugin & MCP server backed by SQLite FTS5 for AI coding agents (VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw, etc.), fully compliant with the **Agent Plugins** specification.
 
 ---
 
-## ✨ 特徴
+## ✨ Features
 
-- 📦 **外部依存ゼロ (Python 標準ライブラリのみ)**  
-  `sqlite3` (FTS5) および標準ライブラリのみで構築されており、`pip install` などのサードパーティ依存パッケージなしで即座に動作します。
+- 📦 **Zero External Dependencies (Python Standard Library Only)**  
+  Built entirely on `sqlite3` (FTS5) and the Python standard library. Runs out-of-the-box without requiring third-party package installations (`pip install`).
 
-- 🧩 **Agent Plugins (v1.0.0) 規格準拠**  
-  [Agent Plugins](https://agent-plugins.org/compatible-clients) に準拠し、公式対応クライアント（VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw）でディレクトリを指定するだけで、MCP サーバ（`mcp.json`）と検索ガイドスキル（`skills/`）をゼロコンフィグで一発認識・即時導入可能。
+- 🧩 **Agent Plugins (v1.0.0) Compliant**  
+  Conforms to the [Agent Plugins](https://agent-plugins.org/compatible-clients) standard. In supported clients (VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw), simply pointing to this repository automatically discovers and loads both the MCP server (`mcp.json`) and the search guidance skill (`skills/`) with zero configuration.
 
-- 🔤 **コード識別子 & 日本語ハイブリッド対応**  
-  `getUserProfile` (camelCase) や `session_token` (snake_case) のサブワード分割に加え、日本語技術文書の CJK 2-gram（バイグラム）トークナイズを Python 側で事前処理。FTS5 インデックスと検索クエリの両方に自動適用されます。
+- 🔤 **Code Identifier & Japanese/CJK Hybrid Tokenization**  
+  Pre-processes code identifiers with subword splitting for `getUserProfile` (camelCase) and `session_token` (snake_case), combined with Python-side CJK 2-gram (bigram) tokenization for technical documentation and comments. Automatically applied to both FTS5 indexing and search queries.
 
-- 📁 **ファイルパスブースト (3.0x)**  
-  FTS5 の `bm25(code_fts, 3.0, 1.0)` 列重み付けにより、ファイルパスとの一致を本文の一致より 3.0 倍優遇。探したいファイルへ少ない検索回数で到達できます。
+- 📁 **File Path Boost (3.0x)**  
+  Leverages FTS5 column weighting `bm25(code_fts, 3.0, 1.0)` to weight file path matches 3.0x higher than file content matches, pinpointing target files in fewer search iterations.
 
-- ⚡ **高速増分更新 & Git Worktree 非干渉**  
-  `git ls-files` による `.gitignore` 完全準拠のファイル収集と、`git diff` / HEAD ハッシュトラッキングによる高速増分更新（通常編集時 0.1〜0.5秒）。インデックス `.bm25_index.db` は Worktree ローカルに配置され `.gitignore` で自動除外されます。
+- ⚡ **Fast Incremental Indexing & Git Worktree Isolation**  
+  Strict `.gitignore` compliance using `git ls-files` with ultra-fast incremental updates (0.1–0.5s during standard editing) via `git diff` / HEAD hash tracking. The index database `.bm25_index.db` is stored locally within the worktree and automatically ignored by `.gitignore`.
 
-- 🔌 **MCP 2026-07-28 ＆ Hermes 標準対応**  
-  - **MCP ネイティブ**: 2026-07-28 仕様準拠のステートレス stdio JSON-RPC サーバ。プロンプトキャッシュ効率を高める決定論的ツールソートを実装。
-  - **Hermes Agent**: MCP 非対応環境向けに薄い Function Calling アダプタ層 (`hermes_adapter.py`) も標準同梱。
+- 🔌 **MCP 2026-07-28 & Hermes Native Support**  
+  - **MCP Native**: Stateless stdio JSON-RPC server adhering to the MCP 2026-07-28 specification, with deterministic tool sorting for prompt cache optimization.
+  - **Hermes Agent**: Includes a lightweight Function Calling adapter layer (`hermes_adapter.py`) for environments without native MCP support.
 
-- 🛡️ **コンテキスト溢れ防止 & フォールバック**  
-  出力文字制限 (`--max-bytes`) は UTF-8 のマルチバイト文字境界を保護して安全に切り詰め。検索結果 0 件時は grep/glob への切り替えを促す構造化フォールバックメッセージを返却します。
+- 🛡️ **Context Overflow Protection & Fallback Guidance**  
+  Safe byte-length truncation (`--max-bytes`) preserving UTF-8 multi-byte character boundaries. Returns structured fallback messages prompting agents to switch to `grep`/`glob` when zero results are found.
 
 ---
 
-## 📁 モジュール構成
+## 📁 Directory Structure
 
 ```text
 mcp-server-bm25-code-search/
-├── plugin.json            # Agent Plugins v1.0.0 マニフェスト
-├── mcp.json               # Agent Plugins v1.0.0 MCP 設定
-├── skills/                # Agent Skills (エージェント向け検索プロンプト・指針)
+├── plugin.json            # Agent Plugins v1.0.0 manifest
+├── mcp.json               # Agent Plugins v1.0.0 MCP configuration
+├── skills/                # Agent Skills (agent search guidelines & prompt)
 │   └── bm25-search/
 │       └── SKILL.md
 ├── bm25_search/
-│   ├── db.py              # SQLite FTS5 v2 スキーマ (chunks / code_fts / triggers)
-│   ├── tokenizer.py       # 事前トークナイザ (camelCase / snake_case / CJK 2-gram)
-│   ├── indexer.py         # インデクサ (git ls-files, 80/20 チャンキング, 増分更新)
-│   ├── search.py          # 検索エンジン & CLI インターフェース
-│   ├── mcp_server.py      # MCP 2026-07-28 ステートレス stdio サーバ
-│   └── hermes_adapter.py  # Hermes Agent 向け Function Calling アダプタ
+│   ├── db.py              # SQLite FTS5 v2 schema (chunks / code_fts / triggers)
+│   ├── tokenizer.py       # Pre-tokenizer (camelCase / snake_case / CJK 2-gram)
+│   ├── indexer.py         # Indexer (git ls-files, 80/20 chunking, incremental sync)
+│   ├── search.py          # Search engine & CLI interface
+│   ├── mcp_server.py      # MCP 2026-07-28 stateless stdio server
+│   └── hermes_adapter.py  # Function Calling adapter for Hermes Agent
 ├── bin/
-│   └── cli.js             # Node.js 向け CLI / npx 起動ラッパー
+│   └── cli.js             # Node.js CLI / npx runner wrapper
 ├── docs/
-│   ├── specification.md   # 詳細仕様書
-│   └── plans/             # 設計ドキュメント
-└── tests/                 # pytest テストスイート
+│   ├── specification.md   # Detailed specification
+│   └── plans/             # Design documents
+└── tests/                 # pytest test suite
 ```
 
 ---
 
-## 🚀 使い方
+## 🚀 Getting Started
 
-### 1. Agent Plugins としての導入 (推奨・ゼロコンフィグ)
+### 1. Installation via Agent Plugins (Recommended / Zero-Config)
 
-[Agent Plugins 公式対応クライアント](https://agent-plugins.org/compatible-clients)（**VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw**）では、本リポジトリのディレクトリを指定またはプラグインとして読み込むだけで、**MCP サーバ（`mcp.json`）と検索ガイドスキル（`skills/`）が同時に自動認識**されます。
+In [Agent Plugins compatible clients](https://agent-plugins.org/compatible-clients) (**VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw**), simply adding this repository directory or loading it as a plugin automatically recognizes **both the MCP server (`mcp.json`) and the search guidance skill (`skills/`)**:
 
-各クライアントの公式セットアップ手順:
+Official setup documentation for supported clients:
 - **VS Code**: [Agent Plugins in VS Code](https://code.visualstudio.com/docs/agent-customization/agent-plugins)
 - **Cursor**: [Cursor Plugins](https://cursor.com/docs/plugins)
 - **GitHub Copilot**: [Copilot Agent Plugins](https://docs.github.com/en/copilot/concepts/agents/about-plugins)
@@ -73,38 +75,38 @@ mcp-server-bm25-code-search/
 - **Grok Bot**: [Grok Bot Automations](https://docs.x.ai/grok-bot/skills-routines-and-automations)
 - **NanoClaw**: [NanoClaw Templates](https://github.com/nanocoai/nanoclaw/blob/main/docs/templates.md)
 
-### 2. CLI での検索実行
+### 2. Running Search via CLI
 
 ```bash
-python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --max-bytes 4000
+python bm25_search/search.py "<search query>" --top-k 5 --format markdown --max-bytes 4000
 ```
 
-**主なオプション:**
-- `<query>`: 検索クエリ（日本語、camelCase、snake_case 対応）
-- `--top-k`: 返す検索結果の上限件数（デフォルト: `5`）
-- `--format`: 出力形式 `markdown` または `json`（デフォルト: `markdown`）
-- `--max-bytes`: 最大出力バイト数。マルチバイト文字を安全に維持して切詰（デフォルト: `4000`）
-- `--mode`: クエリトークンの結合モード `OR` または `AND`（デフォルト: `OR`）
-- `--db`: 使用する SQLite インデックス DB パス（デフォルト: `.bm25_index.db`）
+**Key Options:**
+- `<query>`: Search query (supports Japanese, CJK, camelCase, snake_case)
+- `--top-k`: Maximum number of search results to return (default: `5`)
+- `--format`: Output format, `markdown` or `json` (default: `markdown`)
+- `--max-bytes`: Maximum output bytes; safely truncated preserving multibyte characters (default: `4000`)
+- `--mode`: Token conjunction mode, `OR` or `AND` (default: `OR`)
+- `--db`: Path to SQLite index DB file (default: `.bm25_index.db`)
 
-### 3. 個別 MCP サーバとしての起動（uvx / npx / 手動設定）
+### 3. Running as a Standalone MCP Server (uvx / npx / Manual)
 
-プロジェクトごとに Stdio ＋ 自動インデックス構築で動かすため、`uvx` または `npx` で即座に起動できます。
-引数未指定の場合、MCP サーバが起動されたプロジェクト（カレントディレクトリ）のコードベースを自動検出・増分インデックス（`.bm25_index.db`）の作成・同期を行います。
+The server communicates via Stdio and automatically indexes the project codebase. You can launch it instantly with `uvx` or `npx`.
+If arguments are omitted, the server automatically detects the current working directory as the project root and synchronizes the incremental index (`.bm25_index.db`).
 
-#### 主な起動オプション
-| オプション | 説明 | デフォルト |
+#### CLI Options
+| Option | Description | Default |
 |---|---|---|
-| `--root`, `-r` | インデックス・検索対象のプロジェクトルートディレクトリ | `.` (カレントディレクトリ) |
-| `--db` | SQLite FTS5 インデックス DB ファイルパス | `<root>/.bm25_index.db` |
-| `--no-auto-sync` | ツール呼び出し時の自動インデックス同期を無効化 | 無効 (自動同期有効) |
-| `--stdio` | stdio JSON-RPC トランスポートループを実行 | 有効 |
+| `--root`, `-r` | Target project root directory to index and search | `.` (current directory) |
+| `--db` | Path to SQLite FTS5 index DB file | `<root>/.bm25_index.db` |
+| `--no-auto-sync` | Disable automatic index synchronization on tool calls | Disabled (auto-sync active) |
+| `--stdio` | Run stdio JSON-RPC transport loop | Enabled |
 
-> **💡 `--db` 指定時のプロジェクトルート自動認識:**  
-> `--db <パス>`（例: `--db /path/to/project/.bm25_index.db`）を指定し、`--root` を明示的に指定しなかった場合、**指定された DB ファイルの親ディレクトリがプロジェクトルートとして自動認識**されます。  
-> これにより、グローバル設定やエージェント共通設定から起動する場合でも、`--db` を指定するだけで対象プロジェクトのコードベースを特定し、自動インデックス同期（Auto Sync）と検索がシームレスに機能します（`--root` を明示指定した場合はそちらが優先されます）。
+> **💡 Automatic Project Root Detection with `--db`:**  
+> When specifying `--db <path>` (e.g. `--db /path/to/project/.bm25_index.db`) without an explicit `--root`, **the parent directory of the DB file is automatically detected as the project root**.  
+> This allows global or shared agent configurations to easily target specific projects while maintaining seamless Auto Sync and search functionality (specifying `--root` explicitly will take precedence).
 
-#### ① `uvx` (uv / Python) を使う場合
+#### ① Using `uvx` (uv / Python)
 ```json
 {
   "mcpServers": {
@@ -117,7 +119,7 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 }
 ```
 
-#### ② `npx` (Node.js / npm) を使う場合
+#### ② Using `npx` (Node.js / npm)
 ```json
 {
   "mcpServers": {
@@ -130,14 +132,14 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 }
 ```
 
-#### ③ ローカル Python での直接指定
+#### ③ Using Local Python Directly
 ```json
 {
   "mcpServers": {
     "bm25-code-search": {
       "command": "python",
       "args": [
-        "D:/path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py",
+        "/path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py",
         "--stdio"
       ],
       "alwaysAllow": [
@@ -148,7 +150,7 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 }
 ```
 
-#### ④ `--db` で特定プロジェクトの DB を直接指定する場合
+#### ④ Specifying a Target Project DB via `--db`
 ```json
 {
   "mcpServers": {
@@ -164,47 +166,45 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
   }
 }
 ```
-※ `--root` を指定しなくても親ディレクトリ `/path/to/my-project` が自動でプロジェクトルートとして認識され、インデックスの自動同期と検索が行われます。
+*Note: The parent directory `/path/to/my-project` is automatically recognized as the project root for indexing and synchronization.*
 
+#### 💡 Agent Instruction Guideline (`AGENTS.md` / `CLAUDE.md`)
 
-#### 💡 AI エージェントに `grep` 連打を抑止し BM25 検索を優先させる設定 (`AGENTS.md` / `CLAUDE.md`)
-
-AI エージェントが `grep` を何度もリトライしてトークンやコンテキストを無駄に消費するのを防ぐため、利用するプロジェクトの `AGENTS.md` や `CLAUDE.md`（またはシステムプロンプト）に以下の指示を追記することを推奨します。
+To prevent AI agents from repeatedly spamming `grep` and wasting context tokens, adding the following instruction to your project's `AGENTS.md`, `CLAUDE.md`, or system prompt is strongly recommended:
 
 ```markdown
-## コード検索の指示方針
-- コードベースの機能調査やコード探索を行う際は、最初に MCP ツール `search` (BM25 Code Search) を優先して使用してください。
-- **Claude Code での呼び出し手順**: Claude Code では MCP ツールが Deferred Tool となるため、初回呼び出し前に必ず `ToolSearch` (`select:mcp__bm25-code-search__search`) でスキーマをロードしてから `mcp__bm25-code-search__search` を実行してください。
-- `search` で結果が得られない場合、または特定のシンボル名の完全一致を直接検索する場合にのみ `grep_search` や `glob` を使用してください。
+## Code Search Policy
+- When exploring code or investigating features across the codebase, always prioritize the MCP tool `search` (BM25 Code Search) first.
+- Only fall back to `grep_search` or `glob` if `search` returns zero results or when exact literal matches for a specific symbol are required.
 ```
 
-### 4. Claude Code での設定方法（Agent Plugins 非準拠のため個別設定が必要）
+### 4. Setup in Claude Code (Manual Configuration)
 
-[Claude Code](https://docs.claude.com/en/docs/claude-code) は [Agent Plugins](https://agent-plugins.org/) 規格に準拠していないため、リポジトリを指定するだけの自動認識（`plugin.json` / `mcp.json` のゼロコンフィグ読み込み）は行われません。代わりに、Claude Code 標準の MCP サーバ登録機能を使って個別に設定してください。
+Because [Claude Code](https://docs.claude.com/en/docs/claude-code) does not natively support the [Agent Plugins](https://agent-plugins.org/) standard, automatic manifest discovery (`plugin.json` / `mcp.json`) is not available. Configure it using Claude Code's MCP server registration:
 
-> **💡 Claude Code 利用時のポイント (Deferred Tool):**  
-> Claude Code はコンテキスト節約のため MCP ツールを「Deferred Tool（遅延ロード）」として扱います。初回の検索実行前に内部ツール `ToolSearch` (`select:mcp__bm25-code-search__search`) でツールのスキーマをロードしてから検索が実行されます（上記の `CLAUDE.md` 指示やスキル `.claude/skills/bm25-search/SKILL.md` を配置しておくと確実に実行されます）。
+> **💡 Note on Deferred Tools in Claude Code:**  
+> Claude Code treats MCP tools as "Deferred Tools" to conserve context. The agent will load the tool schema before execution. Adding the instruction above to `CLAUDE.md` or placing the skill in `.claude/skills/bm25-search/SKILL.md` ensures consistent tool selection.
 
-#### 方法 A: `claude mcp add` CLI コマンド（推奨）
+#### Method A: `claude mcp add` CLI Command (Recommended)
 
-プロジェクト直下で以下のいずれかを実行します（`--scope project` を付けるとプロジェクト直下に `.mcp.json` が生成され、git commit してチームで共有できます。`--scope user` にすると全プロジェクト共通のユーザー設定として登録されます）。
+Run one of the following commands in your project root (`--scope project` generates a `.mcp.json` file to commit to git; `--scope user` registers it globally):
 
 ```bash
-# uvx (uv / Python) を使う場合
+# Using uvx (uv / Python)
 claude mcp add bm25-code-search --scope project -- uvx mcp-server-bm25-code-search
 
-# npx (Node.js / npm) を使う場合
+# Using npx (Node.js / npm)
 claude mcp add bm25-code-search --scope project -- npx -y mcp-server-bm25-code-search
 
-# ローカル Python を直接指定する場合（環境変数 -e も指定可能）
-claude mcp add bm25-code-search --scope project -e PYTHONUTF8=1 -- python D:/path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py --stdio
+# Using local Python directly
+claude mcp add bm25-code-search --scope project -e PYTHONUTF8=1 -- python /path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py --stdio
 ```
 
-登録後は `claude mcp list` または Claude Code セッション内の `/mcp` コマンドで認識状況を確認できます。
+Verify the configuration with `claude mcp list` or the `/mcp` command inside a Claude Code session.
 
-#### 方法 B: `.mcp.json` を直接作成
+#### Method B: Direct `.mcp.json` File
 
-プロジェクトルートに `.mcp.json` を作成しても同様に登録できます（内容は上記「個別 MCP サーバとしての起動」節の JSON と同一形式です）。
+Place a `.mcp.json` file in your project root (identical schema to the MCP configuration above):
 
 ```json
 {
@@ -217,19 +217,17 @@ claude mcp add bm25-code-search --scope project -e PYTHONUTF8=1 -- python D:/pat
 }
 ```
 
-`.mcp.json` はプロジェクトルートに置いて git commit することで、チームメンバー間で設定を共有できます（初回読み込み時に Claude Code から承認確認が入ります）。
+### 5. Using Hermes Agent Adapter
 
-### 5. Hermes Agent アダプタの使用
-
-MCP 非対応の Hermes Agent からは、`bm25_search.hermes_adapter` モジュールを利用します。
+For Hermes Agent environments without MCP support, use the `bm25_search.hermes_adapter` module:
 
 ```python
 from bm25_search.hermes_adapter import hermes_function_schema, run_hermes_tool
 
-# Hermes 用 Tool Schema の取得
+# Get Hermes Tool Schema
 schema = hermes_function_schema()
 
-# Hermes からの Function Call 実行
+# Execute Function Call from Hermes
 response = run_hermes_tool({
     "name": "bm25_search",
     "arguments": {
@@ -241,9 +239,9 @@ response = run_hermes_tool({
 
 ---
 
-## 🧪 テストの実行
+## 🧪 Running Tests
 
-`pytest` を使ってユニットテストおよび統合テストを実行できます。
+Run the unit and integration test suite using `pytest`:
 
 ```bash
 pytest tests/
@@ -251,25 +249,24 @@ pytest tests/
 
 ---
 
-## 📄 ドキュメント
+## 📄 Documentation
 
-- [仕様書 (docs/specification.md)](file:///d:/vagrant/harnesses/mcp-server-bm25-code-search/docs/specification.md)
-- [設計仕様書 (docs/plans/bm25-multi-agent-search-skill-design.md)](file:///d:/vagrant/harnesses/mcp-server-bm25-code-search/docs/plans/bm25-multi-agent-search-skill-design.md)
+- [Specification (docs/specification.md)](docs/specification.md)
+- [Design Specification (docs/plans/bm25-multi-agent-search-skill-design.md)](docs/plans/bm25-multi-agent-search-skill-design.md)
 
 ---
 
-## 📚 参考文献・関連リンク
+## 📚 References & Links
 
-- **Agent Plugins 規格**: [Agent Plugins Specification (agentplugins/agent-plugins-spec)](https://github.com/agentplugins/agent-plugins-spec) / [agent-plugins.org](https://agent-plugins.org/)
-- **Agent Skills 規格**: [Agent Skills Specification](https://agentskills.io/specification)
-- **論文**: Wang et al., *"BM25 Wins at Scale: Evaluating Agentic Search over Enterprise Corpora"* (2026)  
+- **Agent Plugins Specification**: [Agent Plugins Specification (agentplugins/agent-plugins-spec)](https://github.com/agentplugins/agent-plugins-spec) / [agent-plugins.org](https://agent-plugins.org/)
+- **Agent Skills Specification**: [Agent Skills Specification](https://agentskills.io/specification)
+- **Paper**: Wang et al., *"BM25 Wins at Scale: Evaluating Agentic Search over Enterprise Corpora"* (2026)  
   [https://arxiv.org/abs/2607.26497](https://arxiv.org/abs/2607.26497)
-- **解説記事**: 須藤英寿（株式会社ナレッジセンス）, *"BM25を使用してCodexのトークンの消費を30%抑える"* (Zenn, 2026)  
+- **Article**: Hidetoshi Sudo (KnowledgeSense, Inc.), *"Using BM25 to reduce Codex token consumption by 30%"* (Zenn, 2026)  
   [https://zenn.dev/knowledgesense/articles/9e55a3bb67729c](https://zenn.dev/knowledgesense/articles/9e55a3bb67729c)
 
 ---
 
-## ⚖️ ライセンス
+## ⚖️ License
 
-本プロジェクトは [MIT License](LICENSE) の下で公開されています。
-
+This project is licensed under the [MIT License](LICENSE).
