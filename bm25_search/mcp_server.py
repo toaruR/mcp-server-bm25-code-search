@@ -51,13 +51,53 @@ from pathlib import Path
 from typing import Any, Optional
 
 try:  # pragma: no cover
-    from bm25_search.indexer import sync_index, db_path_for  # type: ignore
+    from bm25_search.indexer import sync_index, db_path_for, find_repo_root  # type: ignore
 except Exception:  # pragma: no cover
     try:
-        from .indexer import sync_index, db_path_for  # type: ignore
+        from .indexer import sync_index, db_path_for, find_repo_root  # type: ignore
     except Exception:  # pragma: no cover
         sync_index = None  # type: ignore
         db_path_for = None  # type: ignore
+        find_repo_root = None  # type: ignore
+
+
+def _find_repo_root_fallback(start: str) -> Optional[Path]:
+    """Standalone copy of :func:`bm25_search.indexer.find_repo_root`.
+
+    Used only when the sibling ``indexer`` module could not be imported, so
+    this file stays runnable on its own (see module docstring).
+    """
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["git", "-C", start, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            shell=False,
+        )
+    except (OSError, FileNotFoundError):
+        return None
+    if proc.returncode != 0:
+        return None
+    out = proc.stdout.strip()
+    return Path(out) if out else None
+
+
+def resolve_project_root(root_arg: str) -> str:
+    """Resolve the effective project root when auto-detecting (no ``--db``).
+
+    Walks up from *root_arg* to the enclosing git worktree root -- the same
+    mechanism :func:`bm25_search.indexer.find_repo_root` uses for file
+    collection -- so a globally registered server (one MCP config shared by
+    every project) still creates and reads each project's own
+    ``.bm25_index.db`` at that project's true root, even when the client
+    launches the server with a nested cwd.  Never falls back to this
+    package's own install directory; outside a git repo *root_arg* is used
+    unchanged.
+    """
+    start = os.path.abspath(root_arg)
+    finder = find_repo_root if find_repo_root is not None else _find_repo_root_fallback
+    top = finder(start)
+    return str(top) if top else start
 
 
 # ---------------------------------------------------------------------------
@@ -609,12 +649,8 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
     else:
         root_dir = SERVER_CONFIG["root"]
         if root_dir == ".":
-            # auto detect root if cwd is not a repo
-            if not (Path.cwd() / ".git").exists():
-                fallback = Path(__file__).resolve().parent.parent
-                if (fallback / ".git").exists():
-                    root_dir = str(fallback)
-                    SERVER_CONFIG["root"] = root_dir
+            root_dir = resolve_project_root(root_dir)
+            SERVER_CONFIG["root"] = root_dir
         db_path = str(Path(root_dir) / ".bm25_index.db")
         should_sync = SERVER_CONFIG.get("auto_sync", True)
 
@@ -896,10 +932,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         db_parent = Path(args.db).resolve().parent
         if db_parent.exists():
             root_path = str(db_parent)
-    elif args.root == "." and not (Path(root_path) / ".git").exists():
-        fallback = Path(__file__).resolve().parent.parent
-        if (fallback / ".git").exists():
-            root_path = str(fallback)
+    elif args.root == ".":
+        root_path = resolve_project_root(args.root)
     SERVER_CONFIG["root"] = root_path
     SERVER_CONFIG["db_path"] = os.path.abspath(args.db) if args.db else None
     SERVER_CONFIG["auto_sync"] = not args.no_auto_sync

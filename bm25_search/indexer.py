@@ -100,6 +100,26 @@ def get_head_commit(root: str | os.PathLike) -> Optional[str]:
 get_current_head = get_head_commit
 
 
+def find_repo_root(start: str | os.PathLike = ".") -> Optional[Path]:
+    """Git worktree root that *contains* *start*, walking upward like ``git`` does.
+
+    Unlike a bare ``(start / ".git").exists()`` check, this finds the true
+    repo root even when *start* is a subdirectory (e.g. an MCP client that
+    launches the server with a nested cwd) -- the same mechanism a globally
+    registered server needs to always create its index at the real project
+    root instead of drifting into a parent/unrelated directory.  Returns
+    ``None`` when *start* is not inside a git worktree at all.
+    """
+    try:
+        proc = _run_git(["rev-parse", "--show-toplevel"], start)
+    except (OSError, FileNotFoundError):
+        return None
+    if proc.returncode != 0:
+        return None
+    out = proc.stdout.strip()
+    return Path(out) if out else None
+
+
 def matches_extension(path: str | os.PathLike,
                       extensions: Optional[Iterable[str]] = None) -> bool:
     """True when *path*'s filename ends with one of the target extensions.
@@ -885,7 +905,8 @@ __all__ = [
     "TARGET_EXTENSIONS", "DEFAULT_EXTENSIONS", "SUPPORTED_EXTENSIONS",
     "INDEX_EXTENSIONS", "LAST_COMMIT_KEY",
     # git / collection
-    "is_git_repo", "get_head_commit", "get_current_head", "git_ls_files",
+    "is_git_repo", "get_head_commit", "get_current_head", "find_repo_root",
+    "git_ls_files",
     "collect_files", "collect_target_files", "collect_indexable_files",
     "matches_extension", "filter_by_extension",
     # chunking
