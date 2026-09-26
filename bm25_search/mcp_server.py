@@ -50,6 +50,15 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Optional
 
+# When launched as a script (``python bm25_search/mcp_server.py``, as mcp.json
+# does), sys.path[0] is the package directory itself, so ``bm25_search`` is not
+# importable and the indexer silently falls back to ``None`` -- the index is
+# then never built.  Put the package's parent directory on the path first.
+if __package__ in (None, ""):  # pragma: no cover
+    _PKG_PARENT = str(Path(__file__).resolve().parent.parent)
+    if _PKG_PARENT not in sys.path:
+        sys.path.insert(0, _PKG_PARENT)
+
 try:  # pragma: no cover
     from bm25_search.indexer import sync_index, db_path_for, find_repo_root  # type: ignore
 except Exception:  # pragma: no cover
