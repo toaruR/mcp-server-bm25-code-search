@@ -23,6 +23,9 @@ AI コーディングエージェント（VS Code, Cursor, GitHub Copilot, ChatG
 - ⚡ **高速増分更新 & Git Worktree 非干渉**  
   `git ls-files` による `.gitignore` 完全準拠のファイル収集と、`git diff` / HEAD ハッシュトラッキングによる高速増分更新（通常編集時 0.1〜0.5秒）。インデックス `.bm25_index.db` は Worktree ローカルに配置され `.gitignore` で自動除外されます。
 
+- 🌿 **ブランチ切替に自動追従**  
+  `git checkout` でブランチを切り替えても、再構築や手動操作は不要。次の検索時に前回の HEAD との `git diff` で削除・変更・リネーム・追加されたファイルだけを差し替え、検索結果は常に今のブランチの内容と一致します。未コミットの変更も反映され、前回の HEAD が rebase などで消えていても今のツリーに収束します（結合テストで検証済み）。
+
 - 🔌 **MCP 2026-07-28 ＆ Hermes 標準対応**  
   - **MCP ネイティブ**: 2026-07-28 仕様準拠のステートレス stdio JSON-RPC サーバ。プロンプトキャッシュ効率を高める決定論的ツールソートを実装。
   - **Hermes Agent**: MCP 非対応環境向けに薄い Function Calling アダプタ層 (`hermes_adapter.py`) も標準同梱。

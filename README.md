@@ -23,6 +23,9 @@ Fast, low-token BM25 local code search plugin & MCP server backed by SQLite FTS5
 - ⚡ **Fast Incremental Indexing & Git Worktree Isolation**  
   Strict `.gitignore` compliance using `git ls-files` with ultra-fast incremental updates (0.1–0.5s during standard editing) via `git diff` / HEAD hash tracking. The index database `.bm25_index.db` is stored locally within the worktree and automatically ignored by `.gitignore`.
 
+- 🌿 **Follows Branch Switches Automatically**  
+  No rebuild or manual step after `git checkout`. On the next search, only the files deleted, modified, renamed or added since the previously indexed HEAD (via `git diff`) are swapped in, so results always match the branch you are on. Uncommitted changes are picked up too, and the index still converges to the current tree even if the previous HEAD was rebased away (covered by integration tests).
+
 - 🔌 **MCP 2026-07-28 & Hermes Native Support**  
   - **MCP Native**: Stateless stdio JSON-RPC server adhering to the MCP 2026-07-28 specification, with deterministic tool sorting for prompt cache optimization.
   - **Hermes Agent**: Includes a lightweight Function Calling adapter layer (`hermes_adapter.py`) for environments without native MCP support.
