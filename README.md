@@ -106,6 +106,9 @@ If arguments are omitted, the server automatically detects the current working d
 > When specifying `--db <path>` (e.g. `--db /path/to/project/.bm25_index.db`) without an explicit `--root`, **the parent directory of the DB file is automatically detected as the project root**.  
 > This allows global or shared agent configurations to easily target specific projects while maintaining seamless Auto Sync and search functionality (specifying `--root` explicitly will take precedence).
 
+> **🔄 When Auto Sync Runs (Branch Switching):**  
+> The index is updated only when the `search` tool is called (there are no git hooks or file watchers). Switching branches with `git checkout` does nothing by itself; **the index is diff-synced right before the next `search` call**. Instead of a full rebuild, only changed files are re-indexed, based on `git diff` against the previously indexed HEAD plus mtime / hash checks (uncommitted changes included). No sync happens with `--no-auto-sync`.
+
 #### ① Using `uvx` (uv / Python)
 ```json
 {
