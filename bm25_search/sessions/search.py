@@ -3,11 +3,77 @@ from __future__ import annotations
 import base64
 from collections import Counter
 import json
+import os
+from pathlib import Path
+import sqlite3
+import time
 
-from .adapters.base import timestamp
+from .adapters.base import readonly, timestamp
 from .db import Database, dumps
 from .models import AGENTS, SessionError
 from .tokenizer import match_query, tokenize
+
+
+# bm25() is negative, so scaling toward zero demotes chunks made only of tool
+# calls/results below conversation text with similar term matches.
+TOOL_WEIGHT = 0.5
+# Native session ids the running client exposes to child processes. As of
+# 2026-10 only Claude Code passes its id to MCP servers; Codex and agy expose
+# theirs to shell tools only, so they rely on the log-activity fallback, as
+# does Cursor (no known variable).
+CURRENT_SESSION_ENV = {"CLAUDE_CODE_SESSION_ID": "claude_code", "CODEX_THREAD_ID": "codex", "ANTIGRAVITY_CONVERSATION_ID": "agy"}
+ENV_FOR_AGENT = {agent: name for name, agent in CURRENT_SESSION_ENV.items()}
+# A started session whose log is idle this long while a newer top-level log of
+# the same agent is active is treated as replaced (/clear, /resume, new chat).
+IDLE_SECONDS = 600
+
+
+def touched(locator):
+    if "#" in locator:
+        # Cursor keeps every conversation in one state.vscdb ("<db>#<composer id>").
+        database, cid = locator.rsplit("#", 1)
+        try:
+            with readonly(database) as connection:
+                row = connection.execute("SELECT lastUpdatedAt FROM composerHeaders WHERE composerId=?", (cid,)).fetchone()
+        except (OSError, sqlite3.Error, SessionError):
+            return None
+        return row[0] / 1000 if row and isinstance(row[0], (int, float)) else None
+    path = Path(locator)
+    return max((p.stat().st_mtime for p in (path, path.with_name(path.name + "-wal")) if p.exists()), default=None)
+
+
+def current_sessions(db, client_agent=None):
+    """Session uids of the calling sessions, following a client that switched sessions.
+
+    A client that does not pass its id to MCP servers (agy) falls back to its
+    most recently written top-level session that is still active.
+    """
+    found, clock = [], time.time()
+    for agent in AGENTS:
+        native = os.environ.get(ENV_FOR_AGENT.get(agent, ""))
+        if not native and agent != client_agent:
+            continue
+        rows = db.connection.execute("""SELECT s.session_uid,s.native_id,s.parent_id,a.locator FROM sessions s
+                                        JOIN sources src ON src.source_id=s.source_id JOIN artifacts a ON a.session_uid=s.session_uid
+                                        WHERE src.agent=?""", (agent,)).fetchall()
+        if not native:
+            active = [(touched(r["locator"]) or 0, r["session_uid"]) for r in rows if r["parent_id"] is None]
+            active = [item for item in active if clock - item[0] <= IDLE_SECONDS]
+            found.extend([max(active)[1]] if active else [])
+            continue
+        mine = [r for r in rows if r["native_id"] == native or r["native_id"].startswith(native + "::")]
+        if not mine:
+            # Not imported yet (or another project): nothing to exclude or replace.
+            continue
+        own = max((touched(r["locator"]) or 0 for r in mine), default=0)
+        if clock - own > IDLE_SECONDS:
+            newer = [(touched(r["locator"]) or 0, r["session_uid"]) for r in rows if r["parent_id"] is None and r not in mine]
+            newer = [item for item in newer if item[0] > own and clock - item[0] <= IDLE_SECONDS]
+            if newer:
+                found.append(max(newer)[1])
+                continue
+        found.extend(r["session_uid"] for r in mine)
+    return found
 
 
 def integer(value, minimum, maximum):
@@ -60,7 +126,7 @@ def authorize(db, config, sid):
     return session
 
 
-def search(config, query, queries=None, agent="all", top_k=5, since=None, until=None, max_bytes=16384, exclude_session_ids=None):
+def search(config, query, queries=None, agent="all", top_k=5, since=None, until=None, max_bytes=16384, exclude_session_ids=None, include_current=False, client_agent=None):
     integer(top_k, 1, 50)
     integer(max_bytes, 2048, 65536)
     if agent not in ("all", *AGENTS):
@@ -75,6 +141,8 @@ def search(config, query, queries=None, agent="all", top_k=5, since=None, until=
     expressions = [match_query(q) for q in variants]
     excluded = exclude_session_ids if exclude_session_ids is not None else []
     if not isinstance(excluded, list) or len(excluded) > 16 or not all(isinstance(s, str) and len(s) <= 200 for s in excluded):
+        raise SessionError("invalid_arguments")
+    if not isinstance(include_current, bool):
         raise SessionError("invalid_arguments")
     if since is not None and timestamp(since) is None or until is not None and timestamp(until) is None:
         raise SessionError("invalid_arguments")
@@ -93,6 +161,10 @@ def search(config, query, queries=None, agent="all", top_k=5, since=None, until=
         if excluded:
             filters.append("s.session_uid NOT IN (" + ",".join("?" for _ in excluded) + ")")
             params.extend(excluded)
+        current = [] if include_current else current_sessions(db, client_agent)
+        if current:
+            filters.append("s.session_uid NOT IN (" + ",".join("?" for _ in current) + ")")
+            params.extend(current)
         if since:
             filters.append("c.occurred_at>=?")
             params.append(since)
@@ -101,7 +173,9 @@ def search(config, query, queries=None, agent="all", top_k=5, since=None, until=
             params.append(until)
         clause = " AND " + " AND ".join(filters) if filters else ""
         sql = """SELECT c.*,s.title,s.completeness,src.agent,src.source_id,
-                 bm25(session_fts,2.0,1.0,1.5) AS score
+                 bm25(session_fts,2.0,1.0,1.5) * CASE WHEN EXISTS(SELECT 1 FROM json_each(c.parts) j
+                   JOIN messages m ON m.message_uid=json_extract(j.value,'$.message_uid') WHERE m.kind='message')
+                   THEN 1.0 ELSE ? END AS score
                  FROM session_fts JOIN chunks c ON c.chunk_uid=session_fts.rowid
                  JOIN sessions s ON s.session_uid=c.session_uid JOIN sources src ON src.source_id=s.source_id
                  WHERE session_fts MATCH ?""" + clause + " ORDER BY score,c.occurred_at DESC,c.chunk_uid LIMIT ?"
@@ -110,7 +184,7 @@ def search(config, query, queries=None, agent="all", top_k=5, since=None, until=
             fused = {}
             exhausted = True
             for expression in expressions:
-                rows = db.connection.execute(sql, (expression, *params, limit)).fetchall()
+                rows = db.connection.execute(sql, (TOOL_WEIGHT, expression, *params, limit)).fetchall()
                 exhausted = exhausted and len(rows) < limit
                 for rank, row in enumerate(rows, 1):
                     entry = fused.setdefault(row["chunk_uid"], dict(row, fusion=0.0))
@@ -130,14 +204,18 @@ def search(config, query, queries=None, agent="all", top_k=5, since=None, until=
                 if not parts:
                     continue
                 # Prefer the part containing a query term rather than the first
-                # message in a combined conversation chunk.
+                # message in a combined conversation chunk, conversation text first.
                 tokens = set(tokenize(query).split())
-                part = parts[0]
+                part, best = parts[0], None
                 for candidate in parts:
-                    message = db.connection.execute("SELECT body FROM messages WHERE message_uid=?", (candidate["message_uid"],)).fetchone()
+                    message = db.connection.execute("SELECT body,kind FROM messages WHERE message_uid=?", (candidate["message_uid"],)).fetchone()
                     if message and tokens.intersection(tokenize(message[0][candidate["start_char"]:candidate["end_char"]]).split()):
-                        part = candidate
-                        break
+                        if message[1] == "message":
+                            part = candidate
+                            break
+                        best = best or candidate
+                else:
+                    part = best or part
                 message = db.connection.execute("SELECT redacted,truncated FROM messages WHERE message_uid=?", (part["message_uid"],)).fetchone()
                 excerpt = db.connection.execute("SELECT body FROM messages WHERE message_uid=?", (part["message_uid"],)).fetchone()[0][part["start_char"]:part["end_char"]]
                 entry = dict(session_id=row["session_uid"], source_agent=row["agent"], title=row["title"][:160], occurred_at=row["occurred_at"],
@@ -159,6 +237,9 @@ def search(config, query, queries=None, agent="all", top_k=5, since=None, until=
             payload["warnings"].append("candidate_limit_reached")
         if since or until:
             payload["warnings"].append("unknown_event_timestamps_excluded")
+        if current:
+            payload["warnings"].append("current_session_excluded")
+            payload["excluded_current"] = current
         while size(payload) > max_bytes and payload["results"]:
             payload["results"].pop()
             payload["omitted_count"] += 1

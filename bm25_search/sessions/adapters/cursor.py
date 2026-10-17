@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
 
-from .base import is_recall, readonly, timestamp
-from ..identity import path_text
+from .base import fingerprint as file_fingerprint, is_recall, readonly, timestamp
+from ..identity import digest, path_text
+from ..models import SessionError
 from ..models import Artifact, Message, Session
 
 
@@ -82,6 +84,34 @@ def discover(source):
         for cid in sorted(composer_ids - artifacts.keys()):
             yield Artifact(str(global_db.resolve()) + "#" + cid, [global_db, Path(str(global_db) + "-wal")],
                            dict(db=global_db, projects=[], composer_id=cid, bindings=[]))
+
+
+def fingerprint(artifact, maximum, cache=None):
+    """Per-conversation fingerprint and size.
+
+    The global state.vscdb holds every conversation of every project, so its
+    file size and hash would reject or re-read all conversations at once.
+    """
+    if artifact.data.get("invalid"):
+        return file_fingerprint(artifact.paths, maximum, cache)
+    database = artifact.data["db"]
+    shared = {str(Path(database)), str(Path(database)) + "-wal"}
+    files = file_fingerprint([p for p in artifact.paths if str(p) not in shared], maximum, cache)
+    cid, content, total = artifact.data["composer_id"], hashlib.sha256(), 0
+    with readonly(database) as connection:
+        tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "composerHeaders" in tables:
+            content.update(repr(sorted(r[0] for r in connection.execute("SELECT workspaceId FROM composerHeaders WHERE composerId=?", (cid,)))).encode("utf-8"))
+        prefix = "bubbleId:" + cid + ":"
+        rows = connection.execute("SELECT key,value FROM cursorDiskKV WHERE key=? OR (key>=? AND key<?) ORDER BY key",
+                                  ("composerData:" + cid, prefix, prefix[:-1] + ";"))
+        for key, value in rows:
+            data = value if isinstance(value, bytes) else str(value or "").encode("utf-8")
+            total += len(data)
+            if total > maximum:
+                raise SessionError("artifact_too_large")
+            content.update(key.encode("utf-8") + b"\0" + data + b"\0")
+    return digest(files, content.hexdigest())
 
 
 def read(artifact, belongs=None):

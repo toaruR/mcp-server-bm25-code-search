@@ -41,6 +41,7 @@ def parser():
     search.add_argument("--since")
     search.add_argument("--until")
     search.add_argument("--max-bytes", type=int, default=16384)
+    search.add_argument("--include-current", action="store_true")
     read = commands.add_parser("read")
     read.add_argument("session_id")
     read.add_argument("--anchor")
@@ -111,7 +112,7 @@ def main(argv=None):
             elif args.command == "sync":
                 result = service.sync(args.agent, args.source_id, args.verify)
             elif args.command in ("search", "read"):
-                fields = ("query", "agent", "top_k", "since", "until", "max_bytes") if args.command == "search" else ("session_id", "anchor", "cursor", "before", "after", "max_bytes")
+                fields = ("query", "agent", "top_k", "since", "until", "max_bytes", "include_current") if args.command == "search" else ("session_id", "anchor", "cursor", "before", "after", "max_bytes")
                 result = service.call("session_" + args.command, {field: getattr(args, field) for field in fields})
             elif args.command == "status":
                 result = service.status()

@@ -13,6 +13,9 @@ def read(artifact, belongs=None):
     projects = [meta["cwd"]] if isinstance(meta.get("cwd"), str) else []
     if belongs and not belongs(projects):
         return Session(str(native), projects, [])
+    # Guardian threads only re-feed the parent transcript to judge approvals.
+    if meta.get("thread_source") == "guardian_review":
+        return Session(str(native), projects, [], metadata=dict(automated="guardian_review"))
     messages, calls = [], {}
     parent = next((e.get("payload", {}).get("id") for _, e in records if e.get("type") == "session_meta" and isinstance(e.get("payload"), dict) and e["payload"].get("id") != native), None)
     started = timestamp(meta.get("timestamp"))

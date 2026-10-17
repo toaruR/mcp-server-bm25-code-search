@@ -44,8 +44,11 @@ def project_root(value="."):
     if not path.is_dir():
         raise SessionError("project_required")
     try:
+        # stdin=DEVNULL: on Windows, inheriting an MCP server's stdin pipe while
+        # the main thread blocks reading it stalls process creation until the
+        # next request arrives, so background session sync hung between calls.
         result = subprocess.run(["git", "-C", str(path), "rev-parse", "--show-toplevel"], capture_output=True,
-                                text=True, encoding="utf-8", errors="replace", timeout=5)
+                                stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace", timeout=5)
         if result.returncode == 0:
             return Path(result.stdout.strip()).resolve()
     except (OSError, subprocess.TimeoutExpired):

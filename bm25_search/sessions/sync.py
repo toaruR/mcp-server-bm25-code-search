@@ -153,6 +153,8 @@ def sync_sources(config, sources, run_id=None, verify=False):
             else:
                 try:
                     adapter = adapter_for(source)
+                    # Adapters over shared stores (Cursor) measure one conversation, not the whole file.
+                    measure = getattr(adapter, "fingerprint", lambda artifact, maximum, cache=None: fingerprint(artifact.paths, maximum, cache))
                     for artifact in adapter.discover(source):
                         seen.add(artifact.key)
                         if any(fnmatch.fnmatch(str(path), pattern) for path in artifact.paths for pattern in config.data.get("exclude_paths", [])):
@@ -165,8 +167,8 @@ def sync_sources(config, sources, run_id=None, verify=False):
                                 if previous and previous["session_uid"]:
                                     row = db.connection.execute("SELECT revision FROM sessions WHERE session_uid=?", (previous["session_uid"],)).fetchone()
                                     expected_revision = row[0] if row else None
-                                raw_fp = fingerprint(artifact.paths, config.data.get("max_artifact_bytes", 64 * 1024 * 1024), None if verify else cache)
-                                fp = digest(raw_fp, config.policy_hash(), 1)
+                                raw_fp = measure(artifact, config.data.get("max_artifact_bytes", 64 * 1024 * 1024), None if verify else cache)
+                                fp = digest(raw_fp, config.policy_hash(), 2)
                                 if previous and previous["fingerprint"] == fp and previous["state"] == "present":
                                     counts["unchanged"] += 1
                                     old_session = db.connection.execute("SELECT completeness FROM sessions WHERE session_uid=?", (previous["session_uid"],)).fetchone()
@@ -185,6 +187,14 @@ def sync_sources(config, sources, run_id=None, verify=False):
                                     if ambiguous:
                                         diagnostics.append(dict(code="project_unresolved", artifact=digest(artifact.key)[:16]))
                                     break
+                                if parsed.metadata.get("automated"):
+                                    with db.transaction():
+                                        if previous and previous["session_uid"]:
+                                            db.connection.execute("DELETE FROM sessions WHERE session_uid=?", (previous["session_uid"],))
+                                        db.connection.execute("INSERT INTO artifacts VALUES(?,?,?,?,NULL,'present') ON CONFLICT(source_id,locator) DO UPDATE SET fingerprint=excluded.fingerprint,session_uid=NULL,state='present'",
+                                                              (source.source_id, artifact.key, fp, (previous["generation"] if previous else 0) + 1))
+                                    counts["automated_skipped"] += 1
+                                    break
                                 if not parsed.native_id or not parsed.messages:
                                     diagnostics.append(dict(code="unsupported_format", artifact=digest(artifact.key)[:16]))
                                     counts["unsupported"] += 1
@@ -194,7 +204,7 @@ def sync_sources(config, sources, run_id=None, verify=False):
                                     expected_revision = None
                                 normalized = normalize(parsed, sid, config)
                                 parsed.title = config.replace(parsed.title)
-                                if fingerprint(artifact.paths, config.data.get("max_artifact_bytes", 64 * 1024 * 1024)) != raw_fp:
+                                if measure(artifact, config.data.get("max_artifact_bytes", 64 * 1024 * 1024)) != raw_fp:
                                     raise SessionError("source_changed")
                                 outcome = save_session(db, source, artifact, parsed, normalized, fp,
                                                        previous["generation"] if previous else None, expected_revision, run_id)

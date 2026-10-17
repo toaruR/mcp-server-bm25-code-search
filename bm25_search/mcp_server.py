@@ -80,7 +80,7 @@ def _find_repo_root_fallback(start: str) -> Optional[Path]:
     try:
         proc = subprocess.run(
             ["git", "-C", start, "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            capture_output=True, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
             shell=False,
         )
     except (OSError, FileNotFoundError):

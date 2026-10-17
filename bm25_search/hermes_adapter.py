@@ -397,6 +397,7 @@ def invoke_search_via_cli(
     try:
         proc = subprocess.run(
             cmd,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,

@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import queue
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -78,3 +79,38 @@ def test_actual_linked_worktree_default_root_resolution(tmp_path, monkeypatch):
     assert project_root(main) == main.resolve()
     assert (worktree / ".git").is_file()
     assert Config(worktree).root != Config(main).root
+
+
+def test_background_sync_finishes_while_client_is_silent(tmp_path):
+    # Windows: a git child inheriting the blocked stdin pipe stalled sync until
+    # the next request; real clients stay silent between calls.
+    root, inputs = setup_project(tmp_path, ("codex",))
+    session = inputs / "codex" / "session.jsonl"
+    other = tmp_path / "other-project"
+    other.mkdir()
+    for index in range(5):
+        text = session.read_text(encoding="utf-8").replace(root.as_posix(), (other / str(index)).as_posix())
+        (other / str(index)).mkdir()
+        (inputs / "codex" / f"other-{index}.jsonl").write_text(text, encoding="utf-8")
+    repository = Path(__file__).resolve().parents[2]
+    command = [sys.executable, str(repository / "bm25_search/mcp_server.py"), "--stdio", "--root", str(root), "--sessions"]
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", cwd=root)
+    try:
+        process.stdin.write(json.dumps(dict(jsonrpc="2.0", id=1, method="tools/call", params=dict(name="session_sync", arguments={}))) + "\n")
+        process.stdin.flush()
+        run_id = json.loads(process.stdout.readline())["result"]["structuredContent"]["run_id"]
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            with sqlite3.connect(str(root / ".bm25_sessions.db")) as connection:
+                state = connection.execute("SELECT state FROM sync_runs WHERE run_id=?", (run_id,)).fetchone()[0]
+            if state != "running":
+                break
+            time.sleep(.2)
+        assert state == "succeeded"
+    finally:
+        process.stdin.close()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)

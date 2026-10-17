@@ -71,7 +71,8 @@ def _run_git(args: Sequence[str], root: str | os.PathLike) -> subprocess.Complet
     """Run ``git <args>`` inside *root* (never through a shell)."""
     return subprocess.run(
         ["git", "-C", str(root), *args],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        # Never inherit the MCP server's stdin pipe (see sessions.identity).
+        capture_output=True, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
         shell=False,
     )
 

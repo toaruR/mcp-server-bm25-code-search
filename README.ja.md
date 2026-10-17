@@ -108,7 +108,7 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 | `--no-auto-sync` | ツール呼び出し時の自動インデックス同期を無効化 | 無効 (自動同期有効) |
 | `--stdio` | stdio JSON-RPC トランスポートループを実行 | 有効 |
 | `--sessions` | セッション検索ツール（`session_search` / `session_read` / `session_sync`）を追加公開 | 無効 (`search` のみ) |
-| `--client-agent` | `agent=self` の解決先（`claude_code` / `codex` / `agy` / `cursor`） | なし |
+| `--client-agent` | `agent=self` の解決先（`claude_code` / `codex` / `agy` / `cursor`）。Codex/agy では実行中セッションを検索結果から外す判定にも使う | なし |
 | `--knowledge` | 知見ツール（`knowledge_*`）も公開。`--sessions` 必須 | 無効 |
 | `--no-auto-sources` | 入力元が未登録のとき、既定の保存領域を自動で使う動作を無効化 | 無効（自動で使う） |
 

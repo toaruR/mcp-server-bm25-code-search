@@ -110,7 +110,7 @@ If arguments are omitted, the server automatically detects the current working d
 | `--no-auto-sync` | Disable automatic index synchronization on tool calls | Disabled (auto-sync active) |
 | `--stdio` | Run stdio JSON-RPC transport loop | Enabled |
 | `--sessions` | Also expose session recall tools (`session_search` / `session_read` / `session_sync`) | Disabled (`search` only) |
-| `--client-agent` | Agent that `agent=self` resolves to (`claude_code` / `codex` / `agy` / `cursor`) | None |
+| `--client-agent` | Agent that `agent=self` resolves to (`claude_code` / `codex` / `agy` / `cursor`); also lets Codex/agy exclude their running session from results | None |
 | `--knowledge` | Also expose knowledge tools (`knowledge_*`); requires `--sessions` | Disabled |
 | `--no-auto-sources` | Do not fall back to the default session storage locations when no source is registered | Disabled (fallback active) |
 

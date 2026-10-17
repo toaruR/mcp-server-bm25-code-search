@@ -41,7 +41,7 @@ class Service:
 
     def call(self, name, arguments):
         schemas = {
-            "session_search": {"query", "queries", "agent", "top_k", "since", "until", "max_bytes", "exclude_session_ids"},
+            "session_search": {"query", "queries", "agent", "top_k", "since", "until", "max_bytes", "exclude_session_ids", "include_current"},
             "session_read": {"session_id", "anchor", "before", "after", "cursor", "max_bytes"},
             "session_sync": {"action", "agent", "source_id", "run_id"},
         }
@@ -58,7 +58,7 @@ class Service:
                     raise SessionError("invalid_arguments")
                 args = dict(arguments)
                 args["agent"] = self.agent(args.get("agent", "all"))
-                return search.search(self.config, **args)
+                return search.search(self.config, client_agent=self.client_agent, **args)
             if name == "session_read":
                 if "session_id" not in arguments:
                     raise SessionError("invalid_arguments")

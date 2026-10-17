@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 from pathlib import Path
 import shutil
 import sqlite3
@@ -278,3 +279,87 @@ def test_auto_sources_fall_back_to_existing_default_locations(tmp_path, monkeypa
     (tmp_path / "registered").mkdir()
     registered, _ = setup_project(tmp_path / "registered", ("codex",))
     assert [s.source_id for s in Config(registered, auto_sources=True).sources] == ["codex-test"]
+
+
+def test_search_excludes_calling_session_and_demotes_tool_only_chunks(tmp_path, monkeypatch):
+    root, inputs = setup_project(tmp_path, ("claude_code",))
+    base = dict(cwd=root.as_posix(), sessionId="other-claude", version="2.1.300", isSidechain=False)
+    events = [dict(base, timestamp="2026-01-02T00:00:00Z", type="assistant", uuid="o-a1", parentUuid=None,
+                    message=dict(id="o-api", role="assistant", content=[dict(type="tool_use", id="o-call", name="Bash", input=dict(command="echo quokka quokka quokka"))])),
+               dict(base, timestamp="2026-01-02T00:01:00Z", type="assistant", uuid="o-a2", parentUuid="o-a1",
+                    message=dict(id="o-api-2", role="assistant", content=[dict(type="text", text="quokka の設定理由を説明します。ほかにも長い説明が続きます。")]))]
+    dump_events(inputs / "claude_code" / "other.jsonl", events)
+    service = Service(root)
+    service.sync()
+    first = hit(service, "quokka")
+    assert first["snippet"].startswith("quokka の設定理由")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "other-claude")
+    result = service.call("session_search", dict(query="quokka"))
+    assert result["status"] == "zero_match" and "current_session_excluded" in result["warnings"]
+    assert service.call("session_search", dict(query="quokka", include_current=True))["results"]
+
+
+def test_current_session_follows_switch_and_guardian_threads_are_skipped(tmp_path, monkeypatch):
+    root, inputs = setup_project(tmp_path, ("claude_code", "codex"))
+    folder = inputs / "claude_code"
+    base = dict(cwd=root.as_posix(), version="2.1.300", isSidechain=False, type="user", parentUuid=None, timestamp="2026-01-02T00:00:00Z")
+    dump_events(folder / "fresh.jsonl", [dict(base, sessionId="fresh-claude", uuid="f-u1", message=dict(role="user", content="wombat の件"))])
+    guardian = dict(type="session_meta", timestamp="2026-01-02T00:00:00Z", payload=dict(id="guardian-thread", cwd=root.as_posix(), thread_source="guardian_review"))
+    reply = dict(type="response_item", timestamp="2026-01-02T00:00:01Z", payload=dict(type="message", role="user", id="g1", content=[dict(type="input_text", text="wombat review")]))
+    dump_events(inputs / "codex" / "guardian.jsonl", [guardian, reply])
+    service = Service(root)
+    counts = {r["agent"]: r["counts"] for r in service.sync()["sources"]}
+    assert counts["codex"].get("automated_skipped") == 1
+    assert all(r["source_agent"] == "claude_code" for r in service.call("session_search", dict(query="wombat"))["results"])
+    stale = time.time() - 3600
+    os.utime(folder / "session.jsonl", (stale, stale))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "synthetic-claude")
+    result = service.call("session_search", dict(query="wombat"))
+    assert result["status"] == "zero_match" and len(result["excluded_current"]) == 1
+    assert hit(service, "generation")["session_id"] not in result["excluded_current"]
+
+
+def test_client_without_session_env_excludes_its_latest_active_session(tmp_path):
+    root, inputs = setup_project(tmp_path, ("claude_code",))
+    stale = time.time() - 3600
+    os.utime(inputs / "claude_code" / "session.jsonl", (stale, stale))
+    Service(root).sync()
+    assert hit(Service(root, "claude_code"))
+    os.utime(inputs / "claude_code" / "session.jsonl")
+    result = Service(root, "claude_code").call("session_search", dict(query="generation"))
+    assert result["status"] == "zero_match" and len(result["excluded_current"]) == 1
+    assert hit(Service(root))
+
+
+def test_cursor_size_limit_and_fingerprint_are_per_conversation(tmp_path):
+    root, inputs = setup_project(tmp_path, ("cursor",))
+    global_db = inputs / "cursor" / "globalStorage" / "state.vscdb"
+    connection = sqlite3.connect(str(global_db))
+    connection.execute("INSERT INTO cursorDiskKV VALUES('unrelated:blob',?)", ("x" * 200000,))
+    connection.commit()
+    connection.close()
+    config = Config(root)
+    config.data["max_artifact_bytes"] = 100000
+    config.save()
+    service = Service(root)
+    first = service.sync()["sources"][0]["counts"]
+    assert first.get("added", 0) >= 1 and "errors" not in first
+    connection = sqlite3.connect(str(global_db))
+    connection.execute("UPDATE cursorDiskKV SET value=? WHERE key='unrelated:blob'", ("y" * 200000,))
+    connection.commit()
+    connection.close()
+    again = service.sync()["sources"][0]["counts"]
+    assert again.get("unchanged") == first["added"] and "updated" not in again
+
+
+def test_cursor_current_session_uses_conversation_activity(tmp_path):
+    root, inputs = setup_project(tmp_path, ("cursor",))
+    Service(root).sync()
+    assert hit(Service(root, "cursor"))
+    connection = sqlite3.connect(str(inputs / "cursor" / "globalStorage" / "state.vscdb"))
+    connection.execute("UPDATE composerHeaders SET lastUpdatedAt=? WHERE composerId='synthetic-composer'", (int(time.time() * 1000),))
+    connection.commit()
+    connection.close()
+    result = Service(root, "cursor").call("session_search", dict(query="generation", agent="cursor"))
+    assert len(result["excluded_current"]) == 1
+    assert all(r["session_id"] not in result["excluded_current"] for r in result["results"])
