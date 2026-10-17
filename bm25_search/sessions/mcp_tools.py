@@ -31,9 +31,9 @@ def tools(knowledge=False):
     return sorted(result, key=lambda tool: tool["name"])
 
 
-def call(root, client_agent, name, arguments, knowledge=False):
+def call(root, client_agent, name, arguments, knowledge=False, auto_sources=False):
     try:
-        payload = Service(root, client_agent, knowledge).call(name, arguments)
+        payload = Service(root, client_agent, knowledge, auto_sources).call(name, arguments)
         failed = False
     except SessionError as error:
         if error.code in ("invalid_arguments", "invalid_query"):

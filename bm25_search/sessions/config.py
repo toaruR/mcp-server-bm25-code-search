@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 
 from .identity import project_root
@@ -16,8 +17,35 @@ DEFAULTS = {"config_version": 1, "sources": [], "project_aliases": [], "exclude_
             "redaction": {"rules": []}, "max_artifact_bytes": 64 * 1024 * 1024}
 
 
+def default_sources():
+    """Fixed per-product storage locations that exist on this machine.
+
+    Paths are never taken from tool arguments; sync still keeps only records
+    whose workspace matches the project root.
+    """
+    home = Path.home()
+    if os.name == "nt" and os.environ.get("APPDATA"):
+        cursor = Path(os.environ["APPDATA"]) / "Cursor" / "User"
+    elif sys.platform == "darwin":
+        cursor = home / "Library" / "Application Support" / "Cursor" / "User"
+    else:
+        cursor = home / ".config" / "Cursor" / "User"
+    claude = Path(os.environ["CLAUDE_CONFIG_DIR"]) if os.environ.get("CLAUDE_CONFIG_DIR") else home / ".claude"
+    codex = Path(os.environ["CODEX_HOME"]) if os.environ.get("CODEX_HOME") else home / ".codex"
+    candidates = [("claude-local", "claude_code", claude / "projects", ""),
+                  ("codex-local", "codex", codex / "sessions", ""),
+                  ("agy-cli", "agy", home / ".gemini" / "antigravity-cli", "cli"),
+                  ("agy-ide", "agy", home / ".gemini" / "antigravity-ide", "ide"),
+                  ("agy-legacy", "agy", home / ".gemini" / "antigravity", "legacy"),
+                  ("cursor-local", "cursor", cursor, "")]
+    return [Source(source_id, agent, [str(path.expanduser().resolve())], True, variant)
+            for source_id, agent, path, variant in candidates if path.is_dir()]
+
+
 class Config:
-    def __init__(self, root="."):
+    def __init__(self, root=".", auto_sources=False):
+        # auto_sources: use default_sources() while no source is registered.
+        self.auto_sources = auto_sources
         self.root = project_root(root) if str(root) == "." else Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise SessionError("project_required")
@@ -51,6 +79,8 @@ class Config:
             if source.get("adapter", expected_adapter) != expected_adapter:
                 raise SessionError("unsupported_format")
             seen.add(source["source_id"])
+        if self.auto_sources and not sources:
+            seen.update(s.source_id for s in default_sources())
         for key in ("project_aliases", "exclude_paths"):
             if not isinstance(self.data.get(key, []), list) or not all(isinstance(v, str) for v in self.data.get(key, [])):
                 raise SessionError("invalid_config")
@@ -89,6 +119,8 @@ class Config:
 
     @property
     def sources(self):
+        if self.auto_sources and not self.data.get("sources"):
+            return default_sources()
         return [Source(s["source_id"], s["agent"], [str(Path(p).expanduser().resolve()) for p in s["roots"]],
                        s.get("enabled", True), s.get("variant", "")) for s in self.data.get("sources", [])]
 

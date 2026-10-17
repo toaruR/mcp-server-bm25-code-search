@@ -110,6 +110,7 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 | `--sessions` | セッション検索ツール（`session_search` / `session_read` / `session_sync`）を追加公開 | 無効 (`search` のみ) |
 | `--client-agent` | `agent=self` の解決先（`claude_code` / `codex` / `agy` / `cursor`） | なし |
 | `--knowledge` | 知見ツール（`knowledge_*`）も公開。`--sessions` 必須 | 無効 |
+| `--no-auto-sources` | 入力元が未登録のとき、既定の保存領域を自動で使う動作を無効化 | 無効（自動で使う） |
 
 > **💡 `--db` 指定時のプロジェクトルート自動認識:**  
 > `--db <パス>`（例: `--db /path/to/project/.bm25_index.db`）を指定し、`--root` を明示的に指定しなかった場合、**指定された DB ファイルの親ディレクトリがプロジェクトルートとして自動認識**されます。  
@@ -204,7 +205,9 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 > **⚠️ ツール一覧に `search` しか出ない場合:**  
 > `--sessions` の付け忘れか、`bm25_search/sessions/` を含まない古いコピー・旧バージョンを起動しています。`args` のパスが最新のリポジトリを指しているか確認し、MCP を再接続してください。
 
-ツールが出ても、入力元を登録して取り込むまでは検索結果は 0 件です。
+プロジェクトごとの入力元登録は不要です。`.bm25_sessions.json` に入力元が 1 件も無い間は、マシン上に実在する各製品の既定保存領域（`~/.claude/projects`、`~/.codex/sessions`、`~/.gemini/antigravity-*`、Cursor の `User` ディレクトリ）を自動で使います。最初に `session_sync`（`{"action":"start"}`）を 1 回呼んで取り込んでから検索してください。
+
+入力元を明示したい場合は CLI で登録します（登録すると既定は使われず、登録分だけが対象になります）。
 ```powershell
 python -m bm25_search.sessions.cli --root D:/path/to/my-project source add claude-local --agent claude_code --path (Join-Path $env:USERPROFILE '.claude\projects')
 python -m bm25_search.sessions.cli --root D:/path/to/my-project sync

@@ -112,6 +112,7 @@ If arguments are omitted, the server automatically detects the current working d
 | `--sessions` | Also expose session recall tools (`session_search` / `session_read` / `session_sync`) | Disabled (`search` only) |
 | `--client-agent` | Agent that `agent=self` resolves to (`claude_code` / `codex` / `agy` / `cursor`) | None |
 | `--knowledge` | Also expose knowledge tools (`knowledge_*`); requires `--sessions` | Disabled |
+| `--no-auto-sources` | Do not fall back to the default session storage locations when no source is registered | Disabled (fallback active) |
 
 > **💡 Automatic Project Root Detection with `--db`:**  
 > When specifying `--db <path>` (e.g. `--db /path/to/project/.bm25_index.db`) without an explicit `--root`, **the parent directory of the DB file is automatically detected as the project root**.  
@@ -206,7 +207,8 @@ Session recall is a separate set of tools from code `search`. `session_search` /
 > **⚠️ Only `search` shows up in the tool list?**  
 > Either `--sessions` is missing, or the configured path points to an older copy/version without `bm25_search/sessions/`. Check that `args` points to an up-to-date checkout, then reconnect the MCP server.
 
-The tools return no hits until you register sources and import them:
+No per-project source registration is needed: while `.bm25_sessions.json` has no sources, the server uses each product's default storage location that exists on the machine (`~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/antigravity-*`, Cursor's `User` directory). Call `session_sync` (`{"action":"start"}`) once to import, then search.
+To pin sources explicitly instead, register them with the CLI (registered sources replace the defaults):
 ```bash
 python -m bm25_search.sessions.cli --root /path/to/my-project source add claude-local --agent claude_code --path ~/.claude/projects
 python -m bm25_search.sessions.cli --root /path/to/my-project sync

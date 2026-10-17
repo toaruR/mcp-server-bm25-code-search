@@ -1,0 +1,8 @@
+version = 1
+revision = 3
+requires-python = ">=3.9"
+
+[[package]]
+name = "mcp-server-bm25-code-search"
+version = "1.0.0"
+source = { editable = "." }

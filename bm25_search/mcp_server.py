@@ -627,6 +627,7 @@ SERVER_CONFIG: dict[str, Any] = {
     "sessions": False,
     "client_agent": None,
     "knowledge": False,
+    "auto_sources": True,
 }
 
 
@@ -640,7 +641,7 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
         from bm25_search.sessions.mcp_tools import call as session_call
         from bm25_search.sessions.models import SessionError
         try:
-            return session_call(SERVER_CONFIG["root"], SERVER_CONFIG.get("client_agent"), name, params.get("arguments", {}), SERVER_CONFIG.get("knowledge", False))
+            return session_call(SERVER_CONFIG["root"], SERVER_CONFIG.get("client_agent"), name, params.get("arguments", {}), SERVER_CONFIG.get("knowledge", False), SERVER_CONFIG.get("auto_sources", True))
         except SessionError as exc:
             raise McpError(code=-32602, message=exc.code) from exc
 
@@ -950,7 +951,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--stdio", action="store_true",
         help="Run the stdio JSON-RPC transport loop (default behaviour).",
     )
-    parser.add_argument("--sessions", action="store_true", help="Enable project-local session recall tools (explicit source registration required).")
+    parser.add_argument("--sessions", action="store_true", help="Enable project-local session recall tools.")
+    parser.add_argument("--no-auto-sources", action="store_true", help="Do not fall back to default session storage locations when no source is registered.")
     parser.add_argument("--client-agent", choices=["claude_code", "codex", "agy", "cursor"], help="Resolve session agent=self.")
     parser.add_argument("--knowledge", action="store_true", help="Also enable evidence-backed knowledge tools; requires --sessions.")
     args = parser.parse_args(argv)
@@ -969,6 +971,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     SERVER_CONFIG["sessions"] = args.sessions
     SERVER_CONFIG["client_agent"] = args.client_agent
     SERVER_CONFIG["knowledge"] = args.knowledge
+    SERVER_CONFIG["auto_sources"] = not args.no_auto_sources
     if args.sessions:
         # Direct script invocation needs the installed package's parent, while
         # standalone copies without siblings must fail explicitly.
@@ -978,7 +981,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         if str(package_parent) not in sys.path:
             sys.path.insert(0, str(package_parent))
         from bm25_search.sessions.service import Service
-        Service(root_path, args.client_agent, args.knowledge)
+        Service(root_path, args.client_agent, args.knowledge, not args.no_auto_sources)
 
     run_stdio()
     return 0

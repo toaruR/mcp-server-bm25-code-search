@@ -10,10 +10,10 @@ from . import search, sync
 
 
 class Service:
-    def __init__(self, root=".", client_agent=None, knowledge=False):
+    def __init__(self, root=".", client_agent=None, knowledge=False, auto_sources=False):
         if client_agent is not None and client_agent not in AGENTS:
             raise SessionError("invalid_arguments")
-        self.config = Config(root)
+        self.config = Config(root, auto_sources)
         self.client_agent = client_agent
         self.knowledge = knowledge
 

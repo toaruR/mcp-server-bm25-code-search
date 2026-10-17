@@ -18,7 +18,20 @@ DB本体、`-wal`、`-shm`、ローカル設定、マイグレーションbackup
 
 ## 入力元の登録
 
-以下はPowerShellの例。使う製品だけを登録し、rootはセッションを蓄積したいプロジェクトに指定する。
+MCPサーバー（`--sessions`）は、入力元が1件も登録されていない間、実在する既定保存領域を自動で入力元として使う。
+プロジェクトごとの登録は不要で、`session_sync` を呼べば取り込まれる。`--no-auto-sources` で無効化できる。
+
+| source_id | agent | 既定パス |
+| --- | --- | --- |
+| `claude-local` | claude_code | `$CLAUDE_CONFIG_DIR/projects`（未設定時 `~/.claude/projects`） |
+| `codex-local` | codex | `$CODEX_HOME/sessions`（未設定時 `~/.codex/sessions`） |
+| `agy-cli` / `agy-ide` / `agy-legacy` | agy | `~/.gemini/antigravity-cli` / `-ide` / `~/.gemini/antigravity` |
+| `cursor-local` | cursor | Windows `%APPDATA%\Cursor\User`、macOS `~/Library/Application Support/Cursor/User`、他 `~/.config/Cursor/User` |
+
+既定パスはコード内固定で、ツール引数からパスは受け付けない。`allowed_source_ids` には上表のIDを指定できる。
+1件でも明示登録すると既定は使わず、登録分だけが対象になる。CLIは既定を使わないため、CLIで同期する場合は登録が必要。
+
+以下はPowerShellでの明示登録の例。使う製品だけを登録し、rootはセッションを蓄積したいプロジェクトに指定する。
 CLIの実行には、このパッケージをインストールするか、サーバーリポジトリをPythonの検索パスに置く。
 
 ```powershell

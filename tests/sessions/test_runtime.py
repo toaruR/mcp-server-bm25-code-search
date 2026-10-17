@@ -258,3 +258,23 @@ def test_mcp_transport_and_legacy_catalogue(tmp_path):
     assert replies[2]["result"]["structuredContent"]["results"]
     old = subprocess.run([sys.executable, "-m", "bm25_search.mcp_server", "--root", str(root)], input=json.dumps(commands[1]) + "\n", text=True, capture_output=True, cwd=Path(__file__).resolve().parents[2], timeout=20)
     assert [t["name"] for t in json.loads(old.stdout)["result"]["tools"]] == ["search"]
+
+
+def test_auto_sources_fall_back_to_existing_default_locations(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude" / "projects").mkdir(parents=True)
+    (home / ".codex" / "sessions").mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    for name in ("APPDATA", "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    root = tmp_path / "project"
+    root.mkdir()
+    assert Config(root).sources == []
+    auto = Config(root, auto_sources=True)
+    assert {(s.source_id, s.agent) for s in auto.sources} == {("claude-local", "claude_code"), ("codex-local", "codex")}
+    auto.data["allowed_source_ids"] = ["codex-local"]
+    auto.save()
+    assert [s.source_id for s in Service(root, auto_sources=True).sources()] == ["codex-local"]
+    (tmp_path / "registered").mkdir()
+    registered, _ = setup_project(tmp_path / "registered", ("codex",))
+    assert [s.source_id for s in Config(registered, auto_sources=True).sources] == ["codex-test"]
