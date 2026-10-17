@@ -8,6 +8,14 @@ description: Search this project's past Claude Code, Codex, Antigravity or Curso
 Use `session_search` when earlier decisions or investigations could answer the current request, then `session_read` on a relevant hit's session ID and anchor.
 The archive lives at `<project-root>/.bm25_sessions.db`, shared by agents using that root; each worktree has its own DB.
 
+## Agent-Specific Execution (Claude Code)
+
+Claude Code treats MCP tools as deferred tools. If the schemas are not yet loaded in the current session, run `ToolSearch` with query `select:mcp__bm25-code-search__session_search,mcp__bm25-code-search__session_read,mcp__bm25-code-search__session_sync` first.
+
+*(Other agents like Cursor, Codex, and Antigravity can call the tools directly without ToolSearch).*
+
+## Guidelines
+
 - Search defaults to this project and all agents; use `agent=self` for the host's own history. Do not pass `scope` or another project path.
 - Read the source around a hit, including later corrections; a snippet or BM25 score does not establish correctness. Follow `next_cursor` when needed.
 - Compare old findings with current code, versions and environment; identify unverified past assumptions. Cite the source agent, session ID and anchor in the working context.
