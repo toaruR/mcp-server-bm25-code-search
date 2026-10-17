@@ -107,6 +107,9 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 | `--db` | SQLite FTS5 インデックス DB ファイルパス | `<root>/.bm25_index.db` |
 | `--no-auto-sync` | ツール呼び出し時の自動インデックス同期を無効化 | 無効 (自動同期有効) |
 | `--stdio` | stdio JSON-RPC トランスポートループを実行 | 有効 |
+| `--sessions` | セッション検索ツール（`session_search` / `session_read` / `session_sync`）を追加公開 | 無効 (`search` のみ) |
+| `--client-agent` | `agent=self` の解決先（`claude_code` / `codex` / `agy` / `cursor`） | なし |
+| `--knowledge` | 知見ツール（`knowledge_*`）も公開。`--sessions` 必須 | 無効 |
 
 > **💡 `--db` 指定時のプロジェクトルート自動認識:**  
 > `--db <パス>`（例: `--db /path/to/project/.bm25_index.db`）を指定し、`--root` を明示的に指定しなかった場合、**指定された DB ファイルの親ディレクトリがプロジェクトルートとして自動認識**されます。  
@@ -176,6 +179,37 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 }
 ```
 ※ `--root` を指定しなくても親ディレクトリ `/path/to/my-project` が自動でプロジェクトルートとして認識され、インデックスの自動同期と検索が行われます。
+
+#### ⑤ セッション検索を有効化する場合
+コード検索の `search` とは別ツールです。`--sessions` を付けて起動したときだけ `session_search` / `session_read` / `session_sync` が追加されます。
+```json
+{
+  "mcpServers": {
+    "bm25-code-search": {
+      "command": "python",
+      "args": [
+        "D:/path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py",
+        "--stdio",
+        "--sessions",
+        "--root", "D:/path/to/my-project",
+        "--client-agent", "claude_code"
+      ],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}
+```
+> **⚠️ ツール一覧に `search` しか出ない場合:**  
+> `--sessions` の付け忘れか、`bm25_search/sessions/` を含まない古いコピー・旧バージョンを起動しています。`args` のパスが最新のリポジトリを指しているか確認し、MCP を再接続してください。
+
+ツールが出ても、入力元を登録して取り込むまでは検索結果は 0 件です。
+```powershell
+python -m bm25_search.sessions.cli --root D:/path/to/my-project source add claude-local --agent claude_code --path (Join-Path $env:USERPROFILE '.claude\projects')
+python -m bm25_search.sessions.cli --root D:/path/to/my-project sync
+```
+他エージェントの登録や検索方法の詳細は [docs/session-recall.md](docs/session-recall.md) を参照してください。
 
 
 #### 💡 AI エージェントに `grep` 連打を抑止し BM25 検索を優先させる設定 (`AGENTS.md` / `CLAUDE.md`)

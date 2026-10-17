@@ -4,11 +4,27 @@
       "type": "stdio",
       "command": "python",
       "args": [
-        "bm25_search/mcp_server.py",
-        "--stdio"
+        "D:/vagrant/harnesses/mcp-server-bm25-code-search/bm25_search/mcp_server.py",
+        "--stdio",
+        "--db",
+        "D:/vagrant/harnesses/mcp-server-bm25-code-search/.bm25_index.db",
+        "--sessions",
+        "--client-agent",
+        "claude_code"
       ],
       "env": {
-        "PYTHONUTF8": "1"
+        "PYTHONUTF8": "1",
+        "PYTHONPATH": "D:/vagrant/harnesses/mcp-server-bm25-code-search"
+      }
+    },
+    "strict-goal": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "D:/vagrant/harnesses/simple/strict-goal-mcp/strict-goal/server/main.js"
+      ],
+      "env": {
+        "STRICT_GOAL_DATA": "D:/vagrant/harnesses/mcp-server-bm25-code-search/.strict-goal"
       }
     }
   }

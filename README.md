@@ -109,6 +109,9 @@ If arguments are omitted, the server automatically detects the current working d
 | `--db` | Path to SQLite FTS5 index DB file | `<root>/.bm25_index.db` |
 | `--no-auto-sync` | Disable automatic index synchronization on tool calls | Disabled (auto-sync active) |
 | `--stdio` | Run stdio JSON-RPC transport loop | Enabled |
+| `--sessions` | Also expose session recall tools (`session_search` / `session_read` / `session_sync`) | Disabled (`search` only) |
+| `--client-agent` | Agent that `agent=self` resolves to (`claude_code` / `codex` / `agy` / `cursor`) | None |
+| `--knowledge` | Also expose knowledge tools (`knowledge_*`); requires `--sessions` | Disabled |
 
 > **💡 Automatic Project Root Detection with `--db`:**  
 > When specifying `--db <path>` (e.g. `--db /path/to/project/.bm25_index.db`) without an explicit `--root`, **the parent directory of the DB file is automatically detected as the project root**.  
@@ -178,6 +181,37 @@ If arguments are omitted, the server automatically detects the current working d
 }
 ```
 *Note: The parent directory `/path/to/my-project` is automatically recognized as the project root for indexing and synchronization.*
+
+#### ⑤ Enabling Session Recall
+Session recall is a separate set of tools from code `search`. `session_search` / `session_read` / `session_sync` are added only when the server is started with `--sessions`.
+```json
+{
+  "mcpServers": {
+    "bm25-code-search": {
+      "command": "python",
+      "args": [
+        "/path/to/mcp-server-bm25-code-search/bm25_search/mcp_server.py",
+        "--stdio",
+        "--sessions",
+        "--root", "/path/to/my-project",
+        "--client-agent", "claude_code"
+      ],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}
+```
+> **⚠️ Only `search` shows up in the tool list?**  
+> Either `--sessions` is missing, or the configured path points to an older copy/version without `bm25_search/sessions/`. Check that `args` points to an up-to-date checkout, then reconnect the MCP server.
+
+The tools return no hits until you register sources and import them:
+```bash
+python -m bm25_search.sessions.cli --root /path/to/my-project source add claude-local --agent claude_code --path ~/.claude/projects
+python -m bm25_search.sessions.cli --root /path/to/my-project sync
+```
+See [docs/session-recall.md](docs/session-recall.md) for other agents and search usage.
 
 #### 💡 Agent Instruction Guideline (`AGENTS.md` / `CLAUDE.md`)
 
