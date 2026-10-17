@@ -1,0 +1,9 @@
+CREATE TABLE cursorDiskKV(key TEXT,value BLOB);
+CREATE TABLE composerHeaders(composerId TEXT,workspaceId TEXT,createdAt INTEGER,lastUpdatedAt INTEGER,isArchived INTEGER,isSubagent INTEGER,recency INTEGER,checkpointAt INTEGER,value TEXT,subagentTypeName TEXT);
+INSERT INTO cursorDiskKV VALUES('composerData:synthetic-composer','{"composerId": "synthetic-composer", "conversation": [], "createdAt": 1767225600000, "fullConversationHeadersOnly": [{"bubbleId": "synthetic-u", "type": 1}, {"bubbleId": "synthetic-a", "type": 2}, {"bubbleId": "synthetic-tool", "type": 2}]}');
+INSERT INTO cursorDiskKV VALUES('bubbleId:synthetic-composer:synthetic-u','{"bubbleId": "synthetic-u", "type": 1, "text": "[synthetic] 差分取り込みの競合を調べてください。", "createdAt": "2026-01-01T00:00:00Z"}');
+INSERT INTO cursorDiskKV VALUES('bubbleId:synthetic-composer:synthetic-a','{"bubbleId": "synthetic-a", "type": 2, "text": "[synthetic] generationを比較して古いsnapshotを破棄します。", "isThought": false}');
+INSERT INTO cursorDiskKV VALUES('bubbleId:synthetic-composer:synthetic-tool','{"bubbleId": "synthetic-tool", "type": 2, "text": "", "toolFormerData": {"toolCallId": "synthetic-call", "name": "run_terminal_cmd", "rawArgs": "{\"command\":\"echo synthetic\"}", "status": "completed", "result": "[synthetic] exit_code=0; 2 checks passed"}, "timingInfo": {"clientStartTime": 1767225600000}}');
+INSERT INTO cursorDiskKV VALUES('bubbleId:synthetic-deleted:synthetic-null',NULL);
+INSERT INTO cursorDiskKV VALUES('composerData:synthetic-inline','{"composerId": "synthetic-inline", "conversation": [{"bubbleId": "synthetic-inline-u", "type": 1, "text": "[synthetic] 差分取り込みの競合を調べてください。"}, {"bubbleId": "synthetic-inline-a", "type": 2, "text": "[synthetic] generationを比較して古いsnapshotを破棄します。"}]}');
+INSERT INTO composerHeaders VALUES('synthetic-composer','synthetic-workspace',1767225600000,1767225601000,0,0,0,0,'{"composerId": "synthetic-composer", "workspaceIdentifier": {"id": "synthetic-workspace"}}',NULL);

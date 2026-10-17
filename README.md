@@ -1,5 +1,10 @@
 # mcp-server-bm25-code-search
 
+Optional **project-local session recall** searches past Claude Code, Codex,
+Antigravity and Cursor conversations with source anchors and partial-data
+diagnostics. Enable with `--sessions`; the existing code-search default is unchanged.
+See [session recall setup](docs/session-recall.md).
+
 **English** | [日本語](README.ja.md)
 
 Fast, low-token BM25 local code search plugin & MCP server backed by SQLite FTS5 for AI coding agents (VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw, etc.), fully compliant with the **Agent Plugins** specification.

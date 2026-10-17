@@ -1,0 +1,253 @@
+{
+  "format": "t0-counts-v1",
+  "contains_conversation_text": false,
+  "observed_at_utc": "2026-10-16T15:12:59.131326+00:00",
+  "environment": {
+    "python": "3.13.1",
+    "sqlite": "3.45.3"
+  },
+  "sample_policy": {
+    "latest_files_per_source": 3,
+    "max_lines_per_jsonl": 5000
+  },
+  "sources": {
+    "claude_code": {
+      "artifact_count": 571,
+      "counts": {
+        "sample_files": 3,
+        "records": 779,
+        "truncated_records": 0,
+        "with_cwd": 479,
+        "with_timestamp": 634
+      },
+      "event_types": {
+        "other": 542,
+        "user": 89,
+        "assistant": 148
+      },
+      "payload_types": {},
+      "content_block_types": {
+        "text": 67,
+        "thinking": 115,
+        "tool_use": 144,
+        "tool_result": 72,
+        "other": 4
+      },
+      "writer_versions": {
+        "2.1.300": 565
+      }
+    },
+    "codex": {
+      "artifact_count": 92,
+      "counts": {
+        "sample_files": 3,
+        "records": 808,
+        "truncated_records": 0,
+        "with_cwd": 0,
+        "with_timestamp": 808
+      },
+      "event_types": {
+        "session_meta": 3,
+        "event_msg": 392,
+        "response_item": 299,
+        "other": 93,
+        "turn_context": 21
+      },
+      "payload_types": {
+        "other": 136,
+        "task_started": 21,
+        "message": 72,
+        "item_completed": 243,
+        "custom_tool_call": 69,
+        "custom_tool_call_output": 68,
+        "token_count": 89,
+        "reasoning": 90,
+        "task_complete": 20
+      },
+      "content_block_types": {
+        "input_text": 391,
+        "output_text": 33
+      },
+      "writer_versions": {
+        "0.162.0-alpha.17.2": 3
+      },
+      "event_id_correlation": {
+        "user_agent_events": 47,
+        "id_matches_response_item": 33
+      }
+    },
+    "agy_legacy": {
+      "transcript": {
+        "artifact_count": 140,
+        "counts": {
+          "sample_files": 3,
+          "records": 679,
+          "truncated_records": 120,
+          "with_cwd": 0,
+          "with_timestamp": 679
+        },
+        "event_types": {
+          "USER_INPUT": 6,
+          "PLANNER_RESPONSE": 336,
+          "GENERIC": 323,
+          "SYSTEM_MESSAGE": 13,
+          "CHECKPOINT": 1
+        },
+        "payload_types": {},
+        "content_block_types": {},
+        "writer_versions": {}
+      },
+      "database_count": 140,
+      "database_counts": {
+        "with_workspace_uri": 3,
+        "steps": 680,
+        "user_assistant_steps": 342,
+        "with_scalar_body": 22,
+        "embedded_metadata_matches": 342,
+        "historical_db_samples": 3,
+        "planner_call_ids": 323,
+        "result_call_ids": 323,
+        "matching_result_call_ids": 323
+      },
+      "step_formats": {
+        "0": 680
+      },
+      "step_types": {
+        "14": 6,
+        "15": 336,
+        "132": 323,
+        "101": 13,
+        "17": 1,
+        "23": 1
+      },
+      "survey_mode": "stable_historical_no_wal_only"
+    },
+    "agy_ide": {
+      "transcript": {
+        "artifact_count": 158,
+        "counts": {
+          "sample_files": 3,
+          "records": 477,
+          "truncated_records": 49,
+          "with_cwd": 0,
+          "with_timestamp": 477
+        },
+        "event_types": {
+          "USER_INPUT": 7,
+          "CONVERSATION_HISTORY": 4,
+          "KNOWLEDGE_ARTIFACTS": 4,
+          "PLANNER_RESPONSE": 229,
+          "VIEW_FILE": 57,
+          "CHECKPOINT": 4,
+          "LIST_DIRECTORY": 8,
+          "MCP_TOOL": 10,
+          "GREP_SEARCH": 10,
+          "RUN_COMMAND": 75,
+          "GENERIC": 26,
+          "SYSTEM_MESSAGE": 10,
+          "CODE_ACTION": 33
+        },
+        "payload_types": {},
+        "content_block_types": {},
+        "writer_versions": {}
+      },
+      "database_count": 158,
+      "database_counts": {
+        "with_workspace_uri": 3,
+        "steps": 479,
+        "user_assistant_steps": 236,
+        "with_scalar_body": 16,
+        "embedded_metadata_matches": 236,
+        "historical_db_samples": 3,
+        "planner_call_ids": 221,
+        "result_call_ids": 221,
+        "matching_result_call_ids": 221
+      },
+      "step_formats": {
+        "0": 479
+      },
+      "step_types": {
+        "14": 7,
+        "98": 4,
+        "99": 4,
+        "15": 229,
+        "8": 57,
+        "23": 4,
+        "9": 8,
+        "38": 12,
+        "7": 10,
+        "21": 75,
+        "132": 26,
+        "101": 10,
+        "5": 33
+      },
+      "survey_mode": "stable_historical_no_wal_only"
+    },
+    "agy_cli": {
+      "transcript": {
+        "artifact_count": 345,
+        "counts": {
+          "sample_files": 3,
+          "records": 6,
+          "truncated_records": 3,
+          "with_cwd": 0,
+          "with_timestamp": 6
+        },
+        "event_types": {
+          "USER_INPUT": 3,
+          "PLANNER_RESPONSE": 3
+        },
+        "payload_types": {},
+        "content_block_types": {},
+        "writer_versions": {}
+      },
+      "database_count": 346,
+      "database_counts": {
+        "with_workspace_uri": 3,
+        "steps": 6,
+        "user_assistant_steps": 6,
+        "with_scalar_body": 6,
+        "embedded_metadata_matches": 6,
+        "historical_db_samples": 3,
+        "planner_call_ids": 0,
+        "result_call_ids": 0,
+        "matching_result_call_ids": 0
+      },
+      "step_formats": {
+        "0": 6
+      },
+      "step_types": {
+        "14": 3,
+        "15": 3
+      },
+      "survey_mode": "stable_historical_no_wal_only"
+    },
+    "cursor": {
+      "counts": {
+        "workspace_folder": 124,
+        "workspace_workspace": 18,
+        "workspace_configuration": 10,
+        "unreadable_workspace_db": 3,
+        "workspace_composer_metadata": 14,
+        "workspace_all_composers": 94,
+        "headers": 27,
+        "header_workspace_dir_match": 15,
+        "composer_rows": 165,
+        "composers_with_inline": 3,
+        "composers_with_header_refs": 81,
+        "bubble_refs": 2879,
+        "null_composer_rows": 5,
+        "bubble_rows": 2963,
+        "null_bubble_rows": 83,
+        "bubble_json_rows": 2880,
+        "bubble_with_text": 1725,
+        "bubble_with_tool": 1427,
+        "bubble_with_created_at": 138
+      },
+      "inline_role_types": {
+        "1": 4,
+        "2": 4
+      }
+    }
+  }
+}

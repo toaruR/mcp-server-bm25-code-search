@@ -1,0 +1,60 @@
+{
+  "phase": "T0",
+  "implementation_status": "not_implemented",
+  "scope": "Observed local Windows formats only; no runtime MCP or four-client E2E claim",
+  "sources": [
+    {
+      "agent": "claude_code",
+      "format": "jsonl-v2",
+      "acquisition_status": "confirmed",
+      "observed_writer": "2.1.300",
+      "input": "~/.claude/projects/**/*.jsonl",
+      "project": "record.cwd",
+      "identity": "record.sessionId; record.uuid; content block index",
+      "timestamp": "record.timestamp",
+      "user_assistant": "record.type user/assistant; message.content string or typed blocks",
+      "tools": "assistant tool_use.id -> user-envelope tool_result.tool_use_id",
+      "limitations": ["Only observed typed blocks are characterized", "thinking and api-request blobs excluded", "Unknown content blocks require a partial diagnostic"]
+    },
+    {
+      "agent": "codex",
+      "format": "rollout-v1",
+      "acquisition_status": "confirmed",
+      "observed_writer": "0.162.0-alpha.17.2",
+      "input": "~/.codex/sessions/**/*.jsonl",
+      "project": "first session_meta.payload.cwd; turn_context is supplemental",
+      "identity": "first session_meta.payload.id/session_id; response_item.payload.id",
+      "timestamp": "record.timestamp",
+      "user_assistant": "response_item.message role user/assistant; typed content.text",
+      "tools": "custom_tool_call.call_id -> custom_tool_call_output.call_id; output may be a list",
+      "limitations": ["event_msg item IDs do not always equal response_item IDs", "Use response_item as the canonical stream, never concatenate both streams", "Older function_call variants not characterized by the latest-three sample", "reasoning, world_state and developer/system instructions excluded"]
+    },
+    {
+      "agent": "agy",
+      "variants": ["legacy", "ide", "cli"],
+      "format": "trajectory-v0",
+      "acquisition_status": "confirmed_with_partial_tool_coverage",
+      "observed_step_format": 0,
+      "input": "~/.gemini/{antigravity,antigravity-ide,antigravity-cli}/conversations/*.db + brain/<id>/.system_generated/logs/transcript.jsonl",
+      "project": "trajectory_metadata_blob.data protobuf workspaces(1).workspace_folder_absolute_uri(1) or workspace_uris(7)",
+      "identity": "trajectory_meta.cascade_id / source artifact ID; steps.idx; transcript.step_index",
+      "timestamp": "steps.metadata protobuf created_at(1); transcript.created_at",
+      "user_assistant": "step_type 14/15; step_format=0 wrapper fields 19/20; user_response(2)/query(1); modified_response(8)/response(1)",
+      "tools": "planner tool_calls(7).id(1) -> steps.metadata.tool_call(4).id(1); run_command type21 wrapper28; other tool types use transcript with truncation flags",
+      "limitations": ["transcript alone is truncated and lacks reliable project identity", "Only observed protobuf field mappings and format=0 characterized", "items/scopes/media and all generic tool payloads are not fully decoded", "Empty planner text with tool_calls is legitimate", "No immutable access to an active WAL database"]
+    },
+    {
+      "agent": "cursor",
+      "format": "storage-v1",
+      "acquisition_status": "confirmed_with_unbound_history_excluded",
+      "observed_product": "3.20.10",
+      "input": "%APPDATA%/Cursor/User/workspaceStorage/<workspaceId>/{state.vscdb,workspace.json} + globalStorage/state.vscdb",
+      "project": "workspaceStorage/<workspaceId>/workspace.json; composerHeaders.workspaceId or workspace ItemTable composer.composerData.allComposers",
+      "identity": "composerId; bubbleId; cursorDiskKV composite key",
+      "timestamp": "bubble.createdAt or verified timingInfo; composerHeaders timestamps are session timestamps only",
+      "user_assistant": "cursorDiskKV composerData:<id>.conversation or fullConversationHeadersOnly -> bubbleId:<composerId>:<bubbleId>; type1 human/type2 AI",
+      "tools": "bubble.toolFormerData.{toolCallId,name,rawArgs,params,result,status}; preserve native encoding and missing-field diagnostics",
+      "limitations": ["Missing workspace association must not be guessed from attached file paths", "Null values are tombstones, not empty successful messages", "Many bubbles have no event timestamp", "isThought/allThinkingBlocks excluded", "Cloud history and official Markdown export not validated"]
+    }
+  ]
+}

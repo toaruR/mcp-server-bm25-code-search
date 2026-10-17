@@ -29,6 +29,7 @@ dependencies = []
 [project.scripts]
 mcp-server-bm25-code-search = "bm25_search.mcp_server:main"
 bm25-code-search = "bm25_search.mcp_server:main"
+bm25-session-recall = "bm25_search.sessions.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bm25_search"]

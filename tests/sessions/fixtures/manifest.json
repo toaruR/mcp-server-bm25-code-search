@@ -1,0 +1,21 @@
+{
+  "provenance": "Fully synthetic content and identifiers; native field structure observed locally. No original transcript copied.",
+  "project": "C:/fixture/project",
+  "user_text": "[synthetic] 差分取り込みの競合を調べてください。",
+  "assistant_text": "[synthetic] generationを比較して古いsnapshotを破棄します。",
+  "tool_output": "[synthetic] exit_code=0; 2 checks passed",
+  "variants": {
+    "claude_code": "jsonl-v2",
+    "codex": "rollout-v1",
+    "agy": "trajectory-v0 (legacy, ide, cli)",
+    "cursor": "storage-v1"
+  },
+  "edge_cases": [
+    "Claude user-envelope tool_result",
+    "Codex inherited session_meta",
+    "Codex duplicate UserMessage event",
+    "agy truncated transcript with full SQLite body",
+    "Cursor inline and external bubbles",
+    "Cursor null tombstone"
+  ]
+}

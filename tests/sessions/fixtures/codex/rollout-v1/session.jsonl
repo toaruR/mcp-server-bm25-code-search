@@ -1,0 +1,9 @@
+{"type": "session_meta", "timestamp": "2026-01-01T00:00:00Z", "payload": {"id": "synthetic-child", "session_id": "synthetic-child", "cwd": "C:/fixture/project", "cli_version": "0.162.0-alpha.17.2", "thread_source": "subagent", "agent_path": "/root/synthetic"}}
+{"type": "session_meta", "timestamp": "2026-01-01T00:00:00Z", "payload": {"id": "synthetic-parent", "cwd": "C:/fixture/project"}}
+{"type": "response_item", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "message", "id": "synthetic-user", "role": "user", "content": [{"type": "input_text", "text": "[synthetic] 差分取り込みの競合を調べてください。"}]}}
+{"type": "event_msg", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "item_completed", "item": {"type": "UserMessage", "id": "synthetic-user-event", "content": [{"type": "input_text", "text": "[synthetic] 差分取り込みの競合を調べてください。"}]}}}
+{"type": "response_item", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "custom_tool_call", "id": "synthetic-tool", "call_id": "synthetic-call", "name": "functions.exec", "input": "text('synthetic')"}}
+{"type": "response_item", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "custom_tool_call_output", "id": "synthetic-result", "call_id": "synthetic-call", "output": [{"type": "text", "text": "[synthetic] exit_code=0; 2 checks passed"}]}}
+{"type": "response_item", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "reasoning", "summary": [], "encrypted_content": "synthetic-encrypted-placeholder"}}
+{"type": "response_item", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "message", "id": "synthetic-answer", "role": "assistant", "content": [{"type": "output_text", "text": "[synthetic] generationを比較して古いsnapshotを破棄します。"}]}}
+{"type": "event_msg", "timestamp": "2026-01-01T00:00:00Z", "payload": {"type": "item_completed", "item": {"type": "AgentMessage", "id": "synthetic-answer", "content": [{"type": "output_text", "text": "[synthetic] generationを比較して古いsnapshotを破棄します。"}]}}}

@@ -609,7 +609,11 @@ def handle_tools_list(request_id: Any, params: Optional[dict]) -> dict:
     """
     # Deterministic, stable ordering by name (idempotent; defends against any
     # accidental re-ordering of the module-level ``TOOLS`` list).
-    ordered = sorted(TOOLS, key=lambda t: t.get("name", ""))
+    catalogue = list(TOOLS)
+    if SERVER_CONFIG.get("sessions", False):
+        from bm25_search.sessions.mcp_tools import tools as session_tools
+        catalogue.extend(session_tools(SERVER_CONFIG.get("knowledge", False)))
+    ordered = sorted(catalogue, key=lambda t: t.get("name", ""))
     return {
         "resultType": "complete",
         "tools": ordered,
@@ -620,6 +624,9 @@ SERVER_CONFIG: dict[str, Any] = {
     "root": ".",
     "db_path": None,
     "auto_sync": True,
+    "sessions": False,
+    "client_agent": None,
+    "knowledge": False,
 }
 
 
@@ -628,6 +635,14 @@ def handle_tools_call(request_id: Any, params: Optional[dict]) -> dict:
     params = params or {}
     name = params.get("name")
     arguments = params.get("arguments") or {}
+
+    if SERVER_CONFIG.get("sessions", False) and isinstance(name, str) and (name.startswith("session_") or name.startswith("knowledge_") and SERVER_CONFIG.get("knowledge", False)):
+        from bm25_search.sessions.mcp_tools import call as session_call
+        from bm25_search.sessions.models import SessionError
+        try:
+            return session_call(SERVER_CONFIG["root"], SERVER_CONFIG.get("client_agent"), name, params.get("arguments", {}), SERVER_CONFIG.get("knowledge", False))
+        except SessionError as exc:
+            raise McpError(code=-32602, message=exc.code) from exc
 
     if name != "search":
         raise McpError(code=-32602, message=f"Unknown tool: {name!r}")
@@ -935,7 +950,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--stdio", action="store_true",
         help="Run the stdio JSON-RPC transport loop (default behaviour).",
     )
+    parser.add_argument("--sessions", action="store_true", help="Enable project-local session recall tools (explicit source registration required).")
+    parser.add_argument("--client-agent", choices=["claude_code", "codex", "agy", "cursor"], help="Resolve session agent=self.")
+    parser.add_argument("--knowledge", action="store_true", help="Also enable evidence-backed knowledge tools; requires --sessions.")
     args = parser.parse_args(argv)
+    if args.knowledge and not args.sessions:
+        parser.error("--knowledge requires --sessions")
     root_path = os.path.abspath(args.root)
     if args.db and args.root == ".":
         db_parent = Path(args.db).resolve().parent
@@ -946,6 +966,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     SERVER_CONFIG["root"] = root_path
     SERVER_CONFIG["db_path"] = os.path.abspath(args.db) if args.db else None
     SERVER_CONFIG["auto_sync"] = not args.no_auto_sync
+    SERVER_CONFIG["sessions"] = args.sessions
+    SERVER_CONFIG["client_agent"] = args.client_agent
+    SERVER_CONFIG["knowledge"] = args.knowledge
+    if args.sessions:
+        # Direct script invocation needs the installed package's parent, while
+        # standalone copies without siblings must fail explicitly.
+        package_parent = Path(__file__).resolve().parent.parent
+        if not (package_parent / "bm25_search" / "sessions" / "__init__.py").is_file():
+            parser.error("--sessions requires the complete bm25_search package")
+        if str(package_parent) not in sys.path:
+            sys.path.insert(0, str(package_parent))
+        from bm25_search.sessions.service import Service
+        Service(root_path, args.client_agent, args.knowledge)
 
     run_stdio()
     return 0

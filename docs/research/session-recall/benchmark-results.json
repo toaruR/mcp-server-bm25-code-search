@@ -1,0 +1,23 @@
+{
+  "dataset": "synthetic shared-vocabulary distractors with 30 manually defined query targets",
+  "queries": 30,
+  "hit_at_5": 1.0,
+  "import_seconds": 66.26820689998567,
+  "incremental_100_seconds": 0.8447671000030823,
+  "incremental_status": "succeeded",
+  "search_p95_ms": 168.90490002697334,
+  "read_p95_ms": 15.720299998065457,
+  "median_context_bytes_reduction": 0.983953381665025,
+  "messages": 100100,
+  "chunks": 33372,
+  "database_bytes": 330944512,
+  "wal_bytes": 0,
+  "peak_process_memory_bytes": 40157184,
+  "environment": {
+    "os": "Windows",
+    "machine": "AMD64",
+    "python": "3.13.1",
+    "sqlite": "3.45.3"
+  },
+  "limitation": "Synthetic fixture quality is not a real-world relevance guarantee; latency measured after import, with repeated warm queries."
+}

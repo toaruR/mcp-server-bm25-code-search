@@ -1,5 +1,8 @@
 # mcp-server-bm25-code-search
 
+**プロジェクト単位のセッション検索**を追加しました。Claude Code・Codex・agy・Cursorの履歴を出典付きで検索でき、`--sessions` で有効化します。
+既存コード検索の既定動作は維持します。[導入・利用方法](docs/session-recall.md)。
+
 [English](README.md) | **日本語**
 
 AI コーディングエージェント（VS Code, Cursor, GitHub Copilot, ChatGPT & Codex, Kiro, Hermes Agent, OpenClaw, Grok Bot, NanoClaw 等）におけるファイル検索を高速化・低トークン化するための、**Agent Plugins 規格準拠の SQLite FTS5 ローカル BM25 コード検索プラグイン & MCP サーバ**です。

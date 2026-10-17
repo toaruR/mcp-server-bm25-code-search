@@ -1,0 +1,103 @@
+{
+  "scope": "real native data through production adapters/service, not host-client UI E2E",
+  "contains_conversation_text": false,
+  "cases": [
+    {
+      "agent": "claude_code",
+      "variant": "",
+      "status": "passed",
+      "native_host_client_tested": false,
+      "sync_status": "succeeded",
+      "sessions": 1,
+      "messages": 8,
+      "chunks": 8,
+      "search_hits": 2,
+      "read_messages": 5,
+      "diagnostics": []
+    },
+    {
+      "agent": "codex",
+      "variant": "",
+      "status": "passed",
+      "native_host_client_tested": false,
+      "sync_status": "partial",
+      "sessions": 1,
+      "messages": 25,
+      "chunks": 24,
+      "search_hits": 2,
+      "read_messages": 4,
+      "diagnostics": [
+        "partial_session"
+      ]
+    },
+    {
+      "agent": "agy",
+      "variant": "legacy",
+      "status": "passed",
+      "native_host_client_tested": false,
+      "sync_status": "partial",
+      "sessions": 1,
+      "messages": 185,
+      "chunks": 184,
+      "search_hits": 2,
+      "read_messages": 7,
+      "diagnostics": [
+        "partial_session"
+      ]
+    },
+    {
+      "agent": "agy",
+      "variant": "ide",
+      "status": "passed",
+      "native_host_client_tested": false,
+      "sync_status": "partial",
+      "sessions": 1,
+      "messages": 384,
+      "chunks": 384,
+      "search_hits": 2,
+      "read_messages": 6,
+      "diagnostics": [
+        "partial_session"
+      ]
+    },
+    {
+      "agent": "agy",
+      "variant": "cli",
+      "status": "passed",
+      "native_host_client_tested": false,
+      "sync_status": "partial",
+      "sessions": 1,
+      "messages": 2,
+      "chunks": 2,
+      "search_hits": 2,
+      "read_messages": 2,
+      "diagnostics": [
+        "partial_session"
+      ]
+    },
+    {
+      "agent": "cursor",
+      "variant": "",
+      "status": "passed",
+      "native_host_client_tested": false,
+      "sync_status": "partial",
+      "sessions": 1,
+      "messages": 28,
+      "chunks": 21,
+      "search_hits": 2,
+      "read_messages": 7,
+      "diagnostics": [
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved",
+        "project_unresolved"
+      ]
+    }
+  ]
+}
