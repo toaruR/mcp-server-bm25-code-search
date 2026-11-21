@@ -158,5 +158,14 @@ CLIは `knowledge search/read`、`knowledge record --file <json-file>`。
 - 同一本文の重複はまとめるが、似ているだけの別結論を消さないため、曖昧な近似重複の統合は行わない。
 - 入力ログは読み取り専用。WAL付きDBをimmutableで読まず、読み取れなければunavailableを報告する。
 - Windows/WSLをまたぐ同じライブDBの同時利用、ネットワーク上のWAL DB、cloud履歴の取得、公式export全形式は初期対象外。
+- VS Code（Copilot Chat）の履歴（`workspaceStorage/<id>/chatSessions/*.jsonl`）は対象外。
+
+### WSL（2026-10-18 実機確認）
+
+| 構成 | 結果 |
+| --- | --- |
+| エージェントCLI・MCPサーバー・リポジトリがすべてWSL内 | 動く。既定の入力元はWSL側の `~/.claude`・`~/.codex`・`~/.gemini` だけで、Windows側の履歴は読まない |
+| Windowsのエディタから Remote-WSL / `\\wsl.localhost` で開いたWSL内リポジトリ | 取り込まれない。エディタは `vscode-remote://wsl%2Bubuntu/...` や `file://wsl.localhost/Ubuntu/...` で記録し、履歴もWindows側にある |
+| WindowsのPythonで `\\wsl.localhost\...` 上のリポジトリを扱う | 動かない。SQLiteがDBを開けない（`unable to open database file`）。WSL内のリポジトリはWSL内のPythonで起動する |
 
 検証範囲・実測値・未完了の受入確認は [実装検証記録](research/session-recall/implementation-report.md) を参照。
