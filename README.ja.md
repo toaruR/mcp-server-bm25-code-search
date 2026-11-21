@@ -1,7 +1,7 @@
 # mcp-server-bm25-code-search
 
 **プロジェクト単位のセッション検索**を追加しました。Claude Code・Codex・agy・Cursorの履歴を出典付きで検索でき、`--sessions` で有効化します。
-既存コード検索の既定動作は維持します。[導入・利用方法](docs/session-recall.md)。
+既存コード検索の既定動作は維持します。[導入・利用方法](docs/guides/session-recall.md)。
 
 [English](README.md) | **日本語**
 
@@ -212,7 +212,7 @@ python bm25_search/search.py "<検索クエリ>" --top-k 5 --format markdown --m
 python -m bm25_search.sessions.cli --root D:/path/to/my-project source add claude-local --agent claude_code --path (Join-Path $env:USERPROFILE '.claude\projects')
 python -m bm25_search.sessions.cli --root D:/path/to/my-project sync
 ```
-他エージェントの登録や検索方法の詳細は [docs/session-recall.md](docs/session-recall.md) を参照してください。
+他エージェントの登録や検索方法の詳細は [docs/guides/session-recall.md](docs/guides/session-recall.md) を参照してください。
 
 
 #### 💡 AI エージェントに `grep` 連打を抑止し BM25 検索を優先させる設定 (`AGENTS.md` / `CLAUDE.md`)
@@ -302,7 +302,7 @@ pytest tests/
 ## 📄 ドキュメント
 
 - [仕様書 (docs/specification.md)](file:///d:/vagrant/harnesses/mcp-server-bm25-code-search/docs/specification.md)
-- [設計仕様書 (docs/plans/bm25-multi-agent-search-skill-design.md)](file:///d:/vagrant/harnesses/mcp-server-bm25-code-search/docs/plans/bm25-multi-agent-search-skill-design.md)
+- [設計仕様書 (docs/plans/archive/2026-08-12-bm25-multi-agent-search-skill-design.md)](file:///d:/vagrant/harnesses/mcp-server-bm25-code-search/docs/plans/bm25-multi-agent-search-skill-design.md)
 
 ---
 

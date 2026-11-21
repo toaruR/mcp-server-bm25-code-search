@@ -1,6 +1,11 @@
+---
+type: research
+title: セッション検索 T1以降の実装検証記録
+owner: ai
+---
 # セッション検索 T1以降の実装検証記録
 
-検証日: 2026-10-17。対応方式の根拠は [T0調査](t0-report.md)、利用方法は [導入手順](../../session-recall.md)。
+検証日: 2026-10-17。対応方式の根拠は [T0調査](2026-10-17-t0-report.md)、利用方法は [導入手順](../../guides/session-recall.md)。
 
 ## 到達点
 
@@ -42,7 +47,7 @@ Cursorはworkspace/globalの関連付けを更新時にも確認し、孤立し�
 入力SQLiteは読み取り専用。通常のread-only接続が使えない場合のimmutable fallbackは、WAL/journalがなく前後のhashが一致する安定した履歴ファイルだけに限定した。
 
 実ログの検証DBにはprivateな本文が含まれるため成果物に含めず、検証後に一時領域ごと削除する。
-研究スクリプト [native_smoke.py](native_smoke.py) は `--local` と新規workdirを明示した場合だけ動く。
+研究スクリプト [native_smoke.py](native-smoke.py) は `--local` と新規workdirを明示した場合だけ動く。
 
 ## 検索品質と性能
 

@@ -1,3 +1,8 @@
+---
+type: research
+title: セッション検索（Session Recall）の実用性評価レポート
+owner: ai
+---
 # セッション検索（Session Recall）の実用性評価レポート
 
 - **調査日**: 2026-10-17

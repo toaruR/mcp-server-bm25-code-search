@@ -1,3 +1,7 @@
+---
+type: spec
+owner: ai
+---
 <!-- spec-doc:last-reviewed-commit=b516b1f2eebb91d53b422434b0eac3885a65056f reviewed-at=2026-08-12 -->
 
 # コード探索向け BM25 検索 Skill 仕様書

@@ -1,3 +1,9 @@
+---
+type: plan
+status: done
+title: タスク分解(decompose 出力)
+owner: ai
+---
 # タスク分解（decompose 出力）
 
 要求: BM25を活用したマルチエージェント向けファイル検索効率化Skill 設計仕様書

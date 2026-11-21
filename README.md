@@ -3,7 +3,7 @@
 Optional **project-local session recall** searches past Claude Code, Codex,
 Antigravity and Cursor conversations with source anchors and partial-data
 diagnostics. Enable with `--sessions`; the existing code-search default is unchanged.
-See [session recall setup](docs/session-recall.md).
+See [session recall setup](docs/guides/session-recall.md).
 
 **English** | [日本語](README.ja.md)
 
@@ -213,7 +213,7 @@ To pin sources explicitly instead, register them with the CLI (registered source
 python -m bm25_search.sessions.cli --root /path/to/my-project source add claude-local --agent claude_code --path ~/.claude/projects
 python -m bm25_search.sessions.cli --root /path/to/my-project sync
 ```
-See [docs/session-recall.md](docs/session-recall.md) for other agents and search usage.
+See [docs/guides/session-recall.md](docs/guides/session-recall.md) for other agents and search usage.
 
 #### 💡 Agent Instruction Guideline (`AGENTS.md` / `CLAUDE.md`)
 
@@ -299,7 +299,7 @@ pytest tests/
 ## 📄 Documentation
 
 - [Specification (docs/specification.md)](docs/specification.md)
-- [Design Specification (docs/plans/bm25-multi-agent-search-skill-design.md)](docs/plans/bm25-multi-agent-search-skill-design.md)
+- [Design Specification (docs/plans/archive/2026-08-12-bm25-multi-agent-search-skill-design.md)](docs/plans/archive/2026-08-12-bm25-multi-agent-search-skill-design.md)
 
 ---
 

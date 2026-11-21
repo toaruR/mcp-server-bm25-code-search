@@ -1,3 +1,10 @@
+---
+type: plan
+status: superseded
+title: 設計: BM25を活用したマルチエージェント向けファイル検索効率化Skill 設計仕様書
+owner: ai
+superseded_by: docs/plans/archive/2026-08-12-bm25-multi-agent-search-skill-design.md
+---
 # 設計: BM25を活用したマルチエージェント向けファイル検索効率化Skill 設計仕様書
 
 # BM25を活用したマルチエージェント向けファイル検索効率化Skill 設計仕様書

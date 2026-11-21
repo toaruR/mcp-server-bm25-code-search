@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).parent / "fixtures"
 SPEC = importlib.util.spec_from_file_location(
-    "t0_probe", ROOT / "docs/research/session-recall/probe_local.py"
+    "t0_probe", ROOT / "docs/research/session-recall/probe-local.py"
 )
 PROBE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PROBE)

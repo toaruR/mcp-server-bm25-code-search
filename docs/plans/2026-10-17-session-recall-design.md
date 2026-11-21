@@ -1,8 +1,14 @@
+---
+type: plan
+status: active
+title: エージェント横断セッションBM25検索 設計書
+owner: ai
+---
 # エージェント横断セッションBM25検索 設計書
 
 - 作成日: 2026-10-16
 - 状態: 設計案。実装・実ログによる4クライアント検証は未実施
-- 実装状況: T0〜T5と任意のT8を実装・自動検証済み。T6の接続実装・stdio試験とT7の性能測定・実ログ検証を実施し、4製品それぞれの画面からの呼び出し確認を残す。[調査結果](../research/session-recall/t0-report.md)・[実装検証記録](../research/session-recall/implementation-report.md)を参照
+- 実装状況: T0〜T5と任意のT8を実装・自動検証済み。T6の接続実装・stdio試験とT7の性能測定・実ログ検証を実施し、4製品それぞれの画面からの呼び出し確認を残す。[調査結果](../research/session-recall/2026-10-17-t0-report.md)・[実装検証記録](../research/session-recall/2026-10-17-implementation-report.md)を参照
 - 対象: Claude Code / Codex / Antigravity（agy）/ Cursor
 - 実装先: `mcp-server-bm25-code-search`
 - 方針（2026-10-16改訂）: プロジェクトルートの `.bm25_sessions.db` を4エージェントで共有、エージェントの出典識別、原文と知見の分離
@@ -626,7 +632,7 @@ Python 3.9でimportできる構文、FTS5使用可否、Windowsパスを検証�
 
 | Task | 内容 | 完了条件 |
 | --- | --- | --- |
-| T0（完了） | 4製品の取得方式調査、合成値による匿名化fixture、capability一覧 | [調査結果](../research/session-recall/t0-report.md)に既知形式と未取得範囲を記録。agyはSQLite＋transcript、Cursorはworkspace/global結合を選定。正式実装はT2/T3 |
+| T0（完了） | 4製品の取得方式調査、合成値による匿名化fixture、capability一覧 | [調査結果](../research/session-recall/2026-10-17-t0-report.md)に既知形式と未取得範囲を記録。agyはSQLite＋transcript、Cursorはworkspace/global結合を選定。正式実装はT2/T3 |
 | T1（実装・検証済み） | root直下配置、Git除外、設定、識別、DB、migration、永続/派生データ分離 | 同rootの4エージェント共有、worktree別DB、DB誤指定拒否、ID/alias/削除/backup/FTS整合テスト合格 |
 | T2（実装・検証済み） | Claude Code / Codexアダプター | 二重イベント・fork・途中行・ID再現のfixture合格 |
 | T3（実装・検証済み） | agy / Cursorアダプター | T0で選定した取得経路で本文からanchorまで合格。未対応variantは正しく報告 |
@@ -651,4 +657,4 @@ T0の結果で取得経路だけを更新できるよう、共通API・DB・検�
 - 対応していない形式や取得漏れを、0件や成功に見せていないか。
 - 単一ユーザー・単一ホストという初期前提を越えて、ライブDBを共有していないか。
 
-T1以降の実装・検証状況と設計からの具体化は[実装検証記録](../research/session-recall/implementation-report.md)に記録した。プロダクト機能は明示的な有効化とsource登録で利用する。今回の検証DBは隔離した一時領域に作成し、プロジェクト直下の実利用DB作成や各クライアントのグローバル設定変更は実施していない。
+T1以降の実装・検証状況と設計からの具体化は[実装検証記録](../research/session-recall/2026-10-17-implementation-report.md)に記録した。プロダクト機能は明示的な有効化とsource登録で利用する。今回の検証DBは隔離した一時領域に作成し、プロジェクト直下の実利用DB作成や各クライアントのグローバル設定変更は実施していない。

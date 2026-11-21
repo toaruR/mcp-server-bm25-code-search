@@ -1,3 +1,9 @@
+---
+type: plan
+status: done
+title: BM25を活用したマルチエージェント向けファイル検索効率化Skill 設計仕様書
+owner: ai
+---
 # BM25を活用したマルチエージェント向けファイル検索効率化Skill 設計仕様書
 
 本ドキュメントは、Claude Code, Codex, Antigravity, hermes の4つのエージェントにおけるファイル検索処理を最適化し、トークン消費量を削減するための「コード探索向けBM25 Search Skill」の設計仕様および設計煮詰め（イテレーション）のプロセスをまとめたものです。

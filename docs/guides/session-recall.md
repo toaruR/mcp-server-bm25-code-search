@@ -1,3 +1,8 @@
+---
+type: guide
+title: プロジェクト単位のセッション検索
+owner: ai
+---
 # プロジェクト単位のセッション検索
 
 Claude Code、Codex、Antigravity（agy）、Cursorのローカル履歴を、必要なときに検索・参照する機能。
@@ -168,4 +173,4 @@ CLIは `knowledge search/read`、`knowledge record --file <json-file>`。
 | Windowsのエディタから Remote-WSL / `\\wsl.localhost` で開いたWSL内リポジトリ | 取り込まれない。エディタは `vscode-remote://wsl%2Bubuntu/...` や `file://wsl.localhost/Ubuntu/...` で記録し、履歴もWindows側にある |
 | WindowsのPythonで `\\wsl.localhost\...` 上のリポジトリを扱う | 動かない。SQLiteがDBを開けない（`unable to open database file`）。WSL内のリポジトリはWSL内のPythonで起動する |
 
-検証範囲・実測値・未完了の受入確認は [実装検証記録](research/session-recall/implementation-report.md) を参照。
+検証範囲・実測値・未完了の受入確認は [実装検証記録](../research/session-recall/2026-10-17-implementation-report.md) を参照。
