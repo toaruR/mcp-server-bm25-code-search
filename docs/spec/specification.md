@@ -71,7 +71,7 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 ### 4.2 チャンキング戦略
 - 80行固定ブロック / 20行オーバーラップ（ストライド 60行）。
 - `start_line` / `end_line` は 1-based かつ inclusive。
-- **境界スナップ（2-A、既定で有効）**: 理想境界（80行目）が関数・クラスの途中に来る場合、直後最大10行以内に空行があれば、そこまでチャンク終端を前方にのみ延長する（[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) 施策 2-A）。空行に依存する言語非依存のヒューリスティックであり、対応言語判定・構文解析は行わない。近傍に空行が無い場合（JSON/CSS/圧縮コード等）は従来通りの固定長カットにフォールバックする。前方拡張のみのため次チャンクとのカバレッジの穴は発生しない。`chunk_lines(..., snap_boundaries=False)` で無効化可能。
+- **境界スナップ（2-A、既定で有効）**: 理想境界（80行目）が関数・クラスの途中に来る場合、直後最大10行以内に空行があれば、そこまでチャンク終端を前方にのみ延長する（[bm25-agent-reasoning-gap-improvement-plan.md](../plans/archive/2026-08-19-bm25-agent-reasoning-gap-improvement-plan.md) 施策 2-A）。空行に依存する言語非依存のヒューリスティックであり、対応言語判定・構文解析は行わない。近傍に空行が無い場合（JSON/CSS/圧縮コード等）は従来通りの固定長カットにフォールバックする。前方拡張のみのため次チャンクとのカバレッジの穴は発生しない。`chunk_lines(..., snap_boundaries=False)` で無効化可能。
 
 ### 4.3 増分更新 & HEAD 追従
 - `repo_state` に記録された前回コミットハッシュと現在の `HEAD` を比較。
@@ -88,7 +88,7 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 
 ### 5.1 BM25 スコアリング & パスブースト
 - FTS5 `bm25(code_fts, 3.0, 1.0)` を使用し、`filepath` への一致を `index_text`（本文）より 3.0 倍重み付け。
-- **同一ファイル内チャンクの多様化（1-A、既定で有効）**: `search()` は既定で `top_k` の3倍（最低20件）のプールを取得したうえで、同一 `filepath` かつ `start_line` の差が60行未満（オーバーラップのストライドと同値）のチャンクをオーバーラップ由来の重複とみなし、クラスタ内でスコア最良の1件のみを残す（[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) 施策 1-A）。別ファイルや同一ファイル内でも離れた位置のチャンクは間引かれない。`search(..., diversify=False)` で無効化可能（BM25 スコア自体の計算は変更しない）。
+- **同一ファイル内チャンクの多様化（1-A、既定で有効）**: `search()` は既定で `top_k` の3倍（最低20件）のプールを取得したうえで、同一 `filepath` かつ `start_line` の差が60行未満（オーバーラップのストライドと同値）のチャンクをオーバーラップ由来の重複とみなし、クラスタ内でスコア最良の1件のみを残す（[bm25-agent-reasoning-gap-improvement-plan.md](../plans/archive/2026-08-19-bm25-agent-reasoning-gap-improvement-plan.md) 施策 1-A）。別ファイルや同一ファイル内でも離れた位置のチャンクは間引かれない。`search(..., diversify=False)` で無効化可能（BM25 スコア自体の計算は変更しない）。
 - **別ファイル間の近似重複の統合（1-A拡張）**: 同じプール内で `filepath` が異なる2チャンクの `raw_snippet` が `difflib.SequenceMatcher.ratio() >= NEAR_DUPLICATE_THRESHOLD`（既定 0.9）の場合、スコア最良の1件のみを結果に残し、劣後する側は削除ではなく生き残った結果の `similar_to` キー（`{filepath, start_line, end_line, similarity}` のリスト）に記録する。git worktree にソースツリーがそのまま埋め込まれている等、同一内容が別パスの下で二重にインデックスされているケース（`_diversify_same_file()` 内、`search.py` と `mcp_server.py` の組込みフォールバックコピー両方に実装）で `top_k` 枠が重複コンテンツに埋め尽くされるのを防ぐ。
 
 ### 5.2 出力フォーマット & コンテキスト保護
@@ -99,7 +99,7 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 
 ### 5.3 複数クエリファンアウト & 比較材料（`search_multi` / `confidence`）
 
-[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) の施策 2-B / 1-B に対応。
+[bm25-agent-reasoning-gap-improvement-plan.md](../plans/archive/2026-08-19-bm25-agent-reasoning-gap-improvement-plan.md) の施策 2-B / 1-B に対応。
 
 - **`queries`（複数クエリファンアウト）**: `query` に加え、言い換えクエリを最大5件まで `queries` として渡すと、`search_multi()` が各クエリを個別に（`top_k` を広げたプールで）検索し、`(filepath, start_line, end_line)` をキーに Reciprocal Rank Fusion（`1 / (60 + rank)` を積算、標準的な RRF 定数 k=60）で統合して 1 回のレスポンスで返す。複数クエリでヒットしたチャンクは `fusion_score` が加算され上位に来る。各結果には `matched_queries`（ヒットしたクエリ一覧）が付与される。
   - `queries` を渡さない場合（または結果として単一クエリに正規化された場合）は `search()` と完全に同一の結果を返す（後方互換）。
@@ -110,7 +110,7 @@ SQLite FTS5 の External Content Table パターン（v2 スキーマ）を採�
 
 ### 5.4 低確信時フォールバックの拡充（`low_confidence_hint`）
 
-[bm25-agent-reasoning-gap-improvement-plan.md](plans/bm25-agent-reasoning-gap-improvement-plan.md) の施策 1-C に対応。0件時の Zero-Match フォールバック（5.2）とは別に、**ヒットはしたが薄い／弱い**場合にも構造化ヒントを追加する。
+[bm25-agent-reasoning-gap-improvement-plan.md](../plans/archive/2026-08-19-bm25-agent-reasoning-gap-improvement-plan.md) の施策 1-C に対応。0件時の Zero-Match フォールバック（5.2）とは別に、**ヒットはしたが薄い／弱い**場合にも構造化ヒントを追加する。
 
 - レスポンス JSON のトップレベルに `low_confidence_hint`（`string | null`）を常時付与する。
 - 以下いずれかを満たすと非 `null`（同義語・別粒度キーワードでの再検索を推奨する固定文言）になる:
